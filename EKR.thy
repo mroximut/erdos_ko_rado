@@ -59,31 +59,82 @@ proof -
 qed
 
 lemma \<S>_equality:
-  shows "card \<S> = card \<F> * (fact k) * (fact (n - 1))"
+  shows "card \<S> = card \<F> * (fact k) * (fact (n - k))"
 proof -
   show ?thesis sorry
 qed
 
-lemma binomial_eq: 
-  assumes "k \<le> n"
-  shows "n choose k = (fact n) div ((fact k) * (fact (n - k)))"
-  using assms
-  using binomial_altdef_nat by blast 
 
 theorem erdos_ko_rado_upper_bound:
   shows "card \<F> \<le> (n - 1) choose (k - 1)"
 proof -
-  have "card \<F> = (card \<S>) div ((fact k) * (fact (n - 1)))" 
+  have "card \<F> = (card \<S>) div ((fact k) * (fact (n - k)))" 
     using \<S>_equality by simp
-  also have "... \<le> ((fact (n - 1)) * k) div ((fact k) * (fact (n - 1)))"
-    using \<S>_upper_bound using div_le_mono by blast  
-  finally show ?thesis using binomial_eq sorry
+  also have "... \<le> ((fact (n - 1)) * k) div ((fact k) * (fact (n - k)))"
+    using \<S>_upper_bound using div_le_mono by blast 
+  also have "... = fact (n - 1) div (fact (k - 1) * fact (n - k))"
+    by (metis div_mult2_eq div_mult_self_is_m
+        ekr_context.k_pos ekr_context_axioms
+        fact_reduce of_nat_id)
+  also have "... = fact (n - 1) div (fact (k - 1) * fact ((n-1) - (k-1)))"
+    using ekr_context.k_pos ekr_context_axioms by fastforce
+  also have "... = (n - 1) choose (k - 1)" using binomial_altdef_nat n_bound by simp
+  finally show ?thesis .
 qed
+
 
 theorem erdos_ko_rado:
   shows "Max (card ` {F. F \<subseteq> all_k_subsets \<and> intersecting F}) = (n - 1) choose (k - 1)"
 proof -
-  show ?thesis sorry
+  (* Define the set of families and the target bound for clarity *)
+  let ?Families = "{F. F \<subseteq> all_k_subsets \<and> intersecting F}"
+  let ?Counts = "card ` ?Families"
+  let ?bound = "(n - 1) choose (k - 1)"
+
+  (* 1. Establish finiteness *)
+  have "finite S" using finite_S .
+  then have "finite all_k_subsets" unfolding all_k_subsets_def by auto
+  then have fin_families: "finite ?Families" by simp
+  then have fin_counts: "finite ?Counts" by simp
+
+  (* 2. Establish the Upper Bound for all valid families *)
+  have upper_bound_check: "\<forall>C \<in> ?Counts. C \<le> ?bound"
+  proof
+    fix C assume "C \<in> ?Counts"
+    then obtain F where F_def: "F \<in> ?Families" and C_eq: "C = card F" by auto
+    
+    (* Interpret the locale for this specific family F *)
+    interpret F_context: ekr_context n k S F
+    proof
+      show "finite S" by (rule finite_S)
+      show "card S = n" by (rule card_S)
+      show "0 < k" by (rule k_pos)
+      show "2 * k \<le> n" by (rule n_bound)
+      show "F \<subseteq> {A. A \<subseteq> S \<and> card A = k}" 
+        using F_def unfolding all_k_subsets_def by auto
+      show "intersecting F" using F_def by auto
+    qed
+    
+    have "card F \<le> ?bound" using F_context.erdos_ko_rado_upper_bound .
+    then show "C \<le> ?bound" using C_eq by simp
+  qed
+
+  (* 3. Establish Tightness (Existence of a family reaching the bound) *)
+  have "S \<noteq> {}" using n_bound k_pos card_S by auto
+  then obtain x where "x \<in> S" by blast
+  let ?Star = "{A \<in> all_k_subsets. x \<in> A}"
+
+  have star_in_families: "?Star \<in> ?Families" 
+    using erdos_ko_rado_tight(1)[OF \<open>x \<in> S\<close>] by auto
+    
+  have star_card: "card ?Star = ?bound" 
+    using erdos_ko_rado_tight(2)[OF \<open>x \<in> S\<close>] by simp
+
+  have bound_in_counts: "?bound \<in> ?Counts"
+    using star_in_families star_card
+  using image_iff by fastforce
+
+show ?thesis using Max_eqI bound_in_counts fin_counts upper_bound_check by auto 
 qed
 end
 
