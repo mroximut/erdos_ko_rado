@@ -184,6 +184,9 @@ definition circular_permutations :: "'a set \<Rightarrow> ('a list set) set" whe
   "circular_permutations S' = 
     {xs :: 'a list. set xs = S' \<and> distinct xs} // {(x, y). x \<sim>c y}"
 
+lemma "card {xs :: 'a list. set xs = S \<and> distinct xs} = fact n"
+  sorry
+
 lemma "card (circular_permutations S) = fact (n - 1)"
   sorry
 
