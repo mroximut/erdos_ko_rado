@@ -184,10 +184,10 @@ definition circular_permutations :: "'a set \<Rightarrow> ('a list set) set" whe
   "circular_permutations S' = 
     {xs :: 'a list. set xs = S' \<and> distinct xs} // {(x, y). x \<sim>c y}"
 
-lemma "card {xs :: 'a list. set xs = S \<and> distinct xs} = fact n"
+lemma card_permutations_list: "card {xs :: 'a list. set xs = S \<and> distinct xs} = fact n"
   sorry
 
-lemma "card (circular_permutations S) = fact (n - 1)"
+lemma card_circular_permutations: "card (circular_permutations S) = fact (n - 1)"
   sorry
 
 definition meets :: "'a list \<Rightarrow> 'a set \<Rightarrow> bool" where
@@ -241,7 +241,7 @@ qed
   
 definition \<S> :: "('a set \<times> 'a list set) set" where 
 "\<S> = {(A, \<Sigma>). A \<in> \<F> \<and> (\<Sigma> \<in> circular_permutations S) \<and> (\<forall> \<sigma> \<in> \<Sigma>. meets \<sigma> A)}"
-
+(*
 lemma katona_circle_claim:
   fixes \<sigma> :: "'a list"
   assumes "\<exists> \<Sigma> \<in> circular_permutations S. \<sigma> \<in> \<Sigma>"    
@@ -249,10 +249,111 @@ lemma katona_circle_claim:
 proof -
   show ?thesis sorry
 qed
+*)
+
+lemma katona_circle_claim:
+  assumes "\<Sigma> \<in> circular_permutations S"
+  shows "card {A \<in> \<F>. (\<forall> \<sigma> \<in> \<Sigma>. meets \<sigma> A)} \<le> k"
+  sorry
+
+lemma meets_class_consistent:
+  assumes "\<Sigma> \<in> circular_permutations S"
+  assumes "\<sigma>1 \<in> \<Sigma>" and "\<sigma>2 \<in> \<Sigma>"
+  shows "meets \<sigma>1 A \<longleftrightarrow> meets \<sigma>2 A"
+  proof -
+  (* Since they are in the same class, they are rotationally equivalent *)
+  from assms have "\<sigma>1 \<sim>c \<sigma>2"
+    unfolding circular_permutations_def quotient_def Image_def
+    using circular_equiv_def mem_Collect_eq quotient_eq_iff
+    by (smt (verit, best) c_symmetric c_transitive
+      imageE mem_simps(9) singletonD
+      split_conv)
+
+  then obtain m where "\<sigma>2 = rotate m \<sigma>1"
+    unfolding circular_equiv_def by auto
+
+  show ?thesis
+    using meets_rotation_invariant[of "\<sigma>1" A m]
+    using meets_rotation_invariant[of "\<sigma>2" A "length \<sigma>1 - (m mod length \<sigma>1)"]
+    unfolding `\<sigma>2 = rotate m \<sigma>1`
+    (* The reverse direction is implied by symmetry of equivalence or reverse rotation *)
+    using `\<sigma>1 \<sim>c \<sigma>2` c_symmetric circular_equiv_def meets_rotation_invariant
+    by (metis \<open>\<sigma>2 = rotate m \<sigma>1\<close>)
+qed
+
+lemma \<S>_decomposition:
+  "card \<S> = (\<Sum>\<Sigma>\<in>circular_permutations S. card {A \<in> \<F>. (\<forall> \<sigma> \<in> \<Sigma>. meets \<sigma> A)})"
+proof -
+  let ?CP = "circular_permutations S"
+  (* Define the fiber for a given permutation class *)
+  let ?Fiber = "\<lambda>\<Sigma>. {A \<in> \<F>. (\<forall> \<sigma> \<in> \<Sigma>. meets \<sigma> A)}"
+  (* Define the set of pairs we are counting *)
+  let ?S_swapped = "SIGMA \<Sigma>:?CP. ?Fiber \<Sigma>"
+
+  (* 1. Establish the bijection between S and the Sigma set *)
+  have "bij_betw (\<lambda>(A, \<Sigma>). (\<Sigma>, A)) \<S> ?S_swapped"
+    unfolding \<S>_def bij_betw_def inj_on_def by auto
+  then have "card \<S> = card ?S_swapped"
+    by (rule bij_betw_same_card)
+
+  (* 2. Bridge the gap: Prove the Set Equality explicitly *)
+  (* The SIGMA set is definitionally equal to the Union of these products *)
+  also have "?S_swapped = (\<Union>\<Sigma>\<in>?CP. {\<Sigma>} \<times> ?Fiber \<Sigma>)"
+    by (auto simp: Sigma_def)
+
+  (* Therefore, their cardinalities are equal *)
+  then have "card ?S_swapped = card (\<Union>\<Sigma>\<in>?CP. {\<Sigma>} \<times> ?Fiber \<Sigma>)"
+    by simp
+
+  also have "... = (\<Sum>\<Sigma>\<in>?CP. card ({\<Sigma>} \<times> ?Fiber \<Sigma>))"
+  proof (rule card_UN_disjoint)
+    show "finite ?CP"
+      using finite_S
+    using card.infinite card_circular_permutations
+    by fastforce
+
+    show "\<forall>\<Sigma>\<in>?CP. finite ({\<Sigma>} \<times> ?Fiber \<Sigma>)"
+    proof
+      fix \<Sigma> assume "\<Sigma> \<in> ?CP"
+      have "finite \<F>"
+        using finite_S F_family_of_k_subsets finite_Pow_iff finite_subset by fastforce
+      then have "finite (?Fiber \<Sigma>)" by auto
+      thus "finite ({\<Sigma>} \<times> ?Fiber \<Sigma>)" by simp
+    qed
+
+    (* We match the expanded goal explicitly to avoid refinement errors *)
+    show "\<forall>i\<in>?CP. \<forall>j\<in>?CP. i \<noteq> j \<longrightarrow> ({i} \<times> ?Fiber i) \<inter> ({j} \<times> ?Fiber j) = {}"
+      by auto (* Disjoint because the first components (i and j) are distinct *)
+  qed
+
+  (* 3. Simplify the cardinality of the cartesian product *)
+  also have "... = (\<Sum>\<Sigma>\<in>?CP. card (?Fiber \<Sigma>))"
+  by (simp add: card_cartesian_product_singleton) (* card ({x} x A) = card A *)
+
+  finally show ?thesis .
+qed
 
 lemma \<S>_upper_bound:
   shows "card \<S> \<le> (fact (n - 1)) * k"
-sorry
+proof -
+  (* 1. Decompose S *)
+  have "card \<S> = (\<Sum>\<Sigma>\<in>circular_permutations S. card {A \<in> \<F>. (\<forall> \<sigma> \<in> \<Sigma>. meets \<sigma> A)})"
+    using \<S>_decomposition by simp
+
+  (* 2. Apply the bound k to each term in the sum *)
+  also have "... \<le> (\<Sum>\<Sigma>\<in>circular_permutations S. k)"
+    using katona_circle_claim sum_mono by meson
+
+  (* 3. Simplify the sum of a constant *)
+  also have "... = card (circular_permutations S) * k"
+    by simp
+
+  (* 4. Use the cardinality of circular permutations *)
+  also have "... = fact (n - 1) * k"
+    using card_circular_permutations by simp
+
+  finally show ?thesis .
+qed
 
 lemma \<S>_equality:
   shows "card \<S> = card \<F> * (fact k) * (fact (n - k))"
