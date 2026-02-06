@@ -90,9 +90,204 @@ typedef 'a circ_perm = "{c :: 'a circ_list. is_distinct_circ c}"
   morphisms rep_circ_perm abs_circ_perm
   by (rule_tac x="abs_circ_list []" in exI) (simp add: is_distinct_circ.abs_eq)
 
+definition circular_permutations :: "'a set \<Rightarrow> ('a list set) set" where
+  "circular_permutations S' = 
+    {xs :: 'a list. set xs = S' \<and> distinct xs} // {(x, y). x \<sim>c y}"
+
+lemma distinct_list_of_set:
+  assumes finite_S: "finite S"
+  assumes card_S: "card S = n"
+  obtains xs0 where "set xs0 = S" "distinct xs0" "length xs0 = n"
+proof -
+  (* 1. Use the standard library theorem to get a distinct list from a finite set *)
+  obtain xs0 where xs0_props: "set xs0 = S" "distinct xs0"
+    using finite_distinct_list[OF finite_S] by blast
+
+  (* 2. Prove the length must be n using the cardinality of S *)
+  have "length xs0 = card (set xs0)"
+    using distinct_card[OF xs0_props(2)] by simp
+  also have "... = card S"
+    using xs0_props(1) by simp
+  also have "... = n"
+    using card_S by simp
+  finally have "length xs0 = n" .
+
+  (* 3. Apply the properties to the goal *)
+  then show ?thesis
+    using xs0_props that by blast
+qed
+
+lemma permutations_to_list_bijection_of_set:
+  assumes card_S: "card S = n"
+  assumes "set xs0 = S" "distinct xs0"
+  shows "bij_betw (\<lambda>p. map p xs0) {p. p permutes S} {xs. set xs = S \<and> distinct xs}"
+proof -
+  (* Define the domain and codomain sets for clarity *)
+  let ?P = "{p. p permutes S}"
+  let ?L = "{xs. set xs = S \<and> distinct xs}"
+  let ?f = "\<lambda>p. map p xs0"
+
+  (* We need the length of xs0 for indexing arguments *)
+  have len_xs0: "length xs0 = n"
+    using assms card_S distinct_card by force
+
+  show "bij_betw ?f ?P ?L"
+    unfolding bij_betw_def
+  proof (intro conjI)
+
+    (* 1. Proof of Injectivity *)
+    show "inj_on ?f ?P"
+    proof (rule inj_onI)
+      fix p q
+      assume p: "p \<in> ?P" and q: "q \<in> ?P"
+      assume eq: "?f p = ?f q"
+
+      (* Permutations are functions, so we prove equality pointwise *)
+      have "\<forall>x. p x = q x"
+      proof
+        fix x
+        show "p x = q x"
+        proof (cases "x \<in> S")
+          case True
+          (* If x is in S, it's at some index in xs0 *)
+          then obtain i where "i < length xs0" "xs0 ! i = x"
+            using assms(2) by (metis in_set_conv_nth)
+
+          (* The mapped lists are equal at that index *)
+          moreover from eq have "map p xs0 ! i = map q xs0 ! i"
+            by argo
+
+          (* Therefore the function values are equal *)
+          ultimately show ?thesis
+            using nth_map[of i xs0 p] nth_map[of i xs0 q] by simp
+        next
+          case False
+          (* If x is not in S, permutes fixes it by definition *)
+          then show ?thesis
+            using p q permutes_not_in
+          by (metis mem_Collect_eq)
+        qed
+      qed
+      then show "p = q" by (simp add: fun_eq_iff)
+    qed
+
+    (* 2. Proof of Surjectivity *)
+    show "?f ` ?P = ?L"
+    proof (rule subset_antisym)
+
+      (* Direction A: Mapping a permutation creates a valid distinct list *)
+      show "?f ` ?P \<subseteq> ?L"
+      proof
+        fix ys assume "ys \<in> ?f ` ?P"
+        then obtain p where p: "p \<in> ?P" and ys: "ys = map p xs0" by auto
+
+        have "set ys = p ` S"
+          using ys assms(2) by simp
+        also have "... = S"
+          using p permutes_image by simp
+        finally have set_ys: "set ys = S" .
+
+        have "distinct ys"
+          using ys assms(3) p permutes_inj_on distinct_map by blast
+
+        show "ys \<in> ?L"
+          using set_ys `distinct ys` by simp
+      qed
+
+      (* Direction B: Every valid list comes from a permutation *)
+      show "?L \<subseteq> ?f ` ?P"
+      proof
+        fix ys assume "ys \<in> ?L"
+        then have ys_props: "set ys = S" "distinct ys" by auto
+
+        have len_ys: "length ys = n"
+          using ys_props card_S distinct_card by force
+
+        (* Construct the permutation using the pairs of (xs0, ys) *)
+        let ?pairs = "zip xs0 ys"
+        let ?p = "permutation_of_list ?pairs"
+
+        (* Verify the conditions for list_permutes *)
+        have "list_permutes ?pairs S"
+          unfolding list_permutes_def
+          using assms ys_props len_xs0 len_ys by simp
+
+        then have p_perm: "?p permutes S"
+          using permutation_of_list_permutes by blast
+
+        (* Verify this permutation actually maps xs0 to ys *)
+        have "map ?p xs0 = ys"
+        proof (rule nth_equalityI)
+          show "length (map ?p xs0) = length ys"
+            using len_xs0 len_ys by simp
+
+          fix i assume "i < length (map ?p xs0)"
+          then have i: "i < length xs0" by simp
+          then have in_zip: "(xs0!i, ys!i) \<in> set ?pairs"
+            using len_xs0 len_ys set_zip by fastforce
+
+          (* Use the property that permutation_of_list returns the paired value *)
+          have "?p (xs0!i) = ys!i"
+            using permutation_of_list_unique[OF `list_permutes ?pairs S` in_zip] by simp
+
+          then show "map ?p xs0 ! i = ys ! i"
+            using i by simp
+        qed
+
+        then show "ys \<in> ?f ` ?P"
+          using p_perm by force
+      qed
+    qed
+  qed
+qed
+
+(* Main Lemma: Proving the cardinality using the helpers *)
+lemma card_permutations_list_of_set:
+  assumes finite_S: "finite S"
+  assumes card_S: "card S = n"
+  shows  "card {xs :: 'a list. set xs = S \<and> distinct xs} = fact n"
+proof -
+  (* 1. Get the reference list using Helper Lemma 1 *)
+  obtain xs0 where xs0: "set xs0 = S" "distinct xs0"
+    using distinct_list_of_set[OF assms] by force
+
+  (* 2. Define the sets for clarity *)
+  let ?P = "{p. p permutes S}"
+  let ?L = "{xs. set xs = S \<and> distinct xs}"
+
+  (* 3. Establish the bijection using Helper Lemma 2 *)
+  have "bij_betw (\<lambda>p. map p xs0) ?P ?L"
+    using permutations_to_list_bijection_of_set
+  using xs0(1,2) by blast
+
+  (* 4. Equate cardinalities via the bijection *)
+  then have "card ?L = card ?P"
+    using bij_betw_same_card by force
+
+  (* 5. Use the known cardinality of permutations from the library *)
+  also have "... = fact n"
+    using card_permutations[OF card_S finite_S] by simp
+
+  finally show ?thesis .
+qed
+
 
 context ekr_context
 begin
+
+
+lemma distinct_list_of_S:
+  obtains xs0 where "set xs0 = S" "distinct xs0" "length xs0 = n"
+  using distinct_list_of_set[OF finite_S card_S] .
+
+lemma permutations_to_list_bijection:
+  assumes "set xs0 = S" "distinct xs0"
+  shows "bij_betw (\<lambda>p. map p xs0) {p. p permutes S} {xs. set xs = S \<and> distinct xs}"
+  using permutations_to_list_bijection_of_set[OF card_S assms] .
+
+lemma card_permutations_list: "card {xs :: 'a list. set xs = S \<and> distinct xs} = fact n"
+  using card_permutations_list_of_set[OF finite_S card_S] .
+
 lemma erdos_ko_rado_tight:
   fixes x :: 'a
   assumes "x \<in> S"
@@ -179,180 +374,6 @@ proof -
       using n_subsets[OF `finite ?S'`, of "k - 1"] card_S' by simp
     finally show ?thesis .
   qed
-qed
-
-definition circular_permutations :: "'a set \<Rightarrow> ('a list set) set" where
-  "circular_permutations S' = 
-    {xs :: 'a list. set xs = S' \<and> distinct xs} // {(x, y). x \<sim>c y}"
-
-lemma distinct_list_of_S:
-  obtains xs0 where "set xs0 = S" "distinct xs0" "length xs0 = n"
-proof -
-  (* 1. Use the standard library theorem to get a distinct list from a finite set *)
-  obtain xs0 where xs0_props: "set xs0 = S" "distinct xs0"
-    using finite_distinct_list[OF finite_S] by blast
-
-  (* 2. Prove the length must be n using the cardinality of S *)
-  have "length xs0 = card (set xs0)"
-    using distinct_card[OF xs0_props(2)] by simp
-  also have "... = card S"
-    using xs0_props(1) by simp
-  also have "... = n"
-    using card_S by simp
-  finally have "length xs0 = n" .
-
-  (* 3. Apply the properties to the goal *)
-  then show ?thesis
-    using xs0_props that by blast
-qed
-
-lemma permutations_to_list_bijection:
-  assumes "set xs0 = S" "distinct xs0"
-  shows "bij_betw (\<lambda>p. map p xs0) {p. p permutes S} {xs. set xs = S \<and> distinct xs}"
-proof -
-  (* Define the domain and codomain sets for clarity *)
-  let ?P = "{p. p permutes S}"
-  let ?L = "{xs. set xs = S \<and> distinct xs}"
-  let ?f = "\<lambda>p. map p xs0"
-
-  (* We need the length of xs0 for indexing arguments *)
-  have len_xs0: "length xs0 = n"
-    using assms card_S distinct_card by force
-
-  show "bij_betw ?f ?P ?L"
-    unfolding bij_betw_def
-  proof (intro conjI)
-
-    (* 1. Proof of Injectivity *)
-    show "inj_on ?f ?P"
-    proof (rule inj_onI)
-      fix p q
-      assume p: "p \<in> ?P" and q: "q \<in> ?P"
-      assume eq: "?f p = ?f q"
-
-      (* Permutations are functions, so we prove equality pointwise *)
-      have "\<forall>x. p x = q x"
-      proof
-        fix x
-        show "p x = q x"
-        proof (cases "x \<in> S")
-          case True
-          (* If x is in S, it's at some index in xs0 *)
-          then obtain i where "i < length xs0" "xs0 ! i = x"
-            using assms(1) by (metis in_set_conv_nth)
-
-          (* The mapped lists are equal at that index *)
-          moreover from eq have "map p xs0 ! i = map q xs0 ! i"
-            by argo
-
-          (* Therefore the function values are equal *)
-          ultimately show ?thesis
-            using nth_map[of i xs0 p] nth_map[of i xs0 q] by simp
-        next
-          case False
-          (* If x is not in S, permutes fixes it by definition *)
-          then show ?thesis
-            using p q permutes_not_in
-          by (metis mem_Collect_eq)
-        qed
-      qed
-      then show "p = q" by (simp add: fun_eq_iff)
-    qed
-
-    (* 2. Proof of Surjectivity *)
-    show "?f ` ?P = ?L"
-    proof (rule subset_antisym)
-
-      (* Direction A: Mapping a permutation creates a valid distinct list *)
-      show "?f ` ?P \<subseteq> ?L"
-      proof
-        fix ys assume "ys \<in> ?f ` ?P"
-        then obtain p where p: "p \<in> ?P" and ys: "ys = map p xs0" by auto
-
-        have "set ys = p ` S"
-          using ys assms(1) by simp
-        also have "... = S"
-          using p permutes_image by simp
-        finally have set_ys: "set ys = S" .
-
-        have "distinct ys"
-          using ys assms(2) p permutes_inj_on distinct_map by blast
-
-        show "ys \<in> ?L"
-          using set_ys `distinct ys` by simp
-      qed
-
-      (* Direction B: Every valid list comes from a permutation *)
-      show "?L \<subseteq> ?f ` ?P"
-      proof
-        fix ys assume "ys \<in> ?L"
-        then have ys_props: "set ys = S" "distinct ys" by auto
-
-        have len_ys: "length ys = n"
-          using ys_props card_S distinct_card by force
-
-        (* Construct the permutation using the pairs of (xs0, ys) *)
-        let ?pairs = "zip xs0 ys"
-        let ?p = "permutation_of_list ?pairs"
-
-        (* Verify the conditions for list_permutes *)
-        have "list_permutes ?pairs S"
-          unfolding list_permutes_def
-          using assms ys_props len_xs0 len_ys by simp
-
-        then have p_perm: "?p permutes S"
-          using permutation_of_list_permutes by blast
-
-        (* Verify this permutation actually maps xs0 to ys *)
-        have "map ?p xs0 = ys"
-        proof (rule nth_equalityI)
-          show "length (map ?p xs0) = length ys"
-            using len_xs0 len_ys by simp
-
-          fix i assume "i < length (map ?p xs0)"
-          then have i: "i < length xs0" by simp
-          then have in_zip: "(xs0!i, ys!i) \<in> set ?pairs"
-            using len_xs0 len_ys set_zip by fastforce
-
-          (* Use the property that permutation_of_list returns the paired value *)
-          have "?p (xs0!i) = ys!i"
-            using permutation_of_list_unique[OF `list_permutes ?pairs S` in_zip] by simp
-
-          then show "map ?p xs0 ! i = ys ! i"
-            using i by simp
-        qed
-
-        then show "ys \<in> ?f ` ?P"
-          using p_perm by force
-      qed
-    qed
-  qed
-qed
-
-(* Main Lemma: Proving the cardinality using the helpers *)
-lemma card_permutations_list: "card {xs :: 'a list. set xs = S \<and> distinct xs} = fact n"
-proof -
-  (* 1. Get the reference list using Helper Lemma 1 *)
-  obtain xs0 where xs0: "set xs0 = S" "distinct xs0"
-    using distinct_list_of_S by force
-
-  (* 2. Define the sets for clarity *)
-  let ?P = "{p. p permutes S}"
-  let ?L = "{xs. set xs = S \<and> distinct xs}"
-
-  (* 3. Establish the bijection using Helper Lemma 2 *)
-  have "bij_betw (\<lambda>p. map p xs0) ?P ?L"
-    using permutations_to_list_bijection[OF xs0] .
-
-  (* 4. Equate cardinalities via the bijection *)
-  then have "card ?L = card ?P"
-    using bij_betw_same_card by force
-
-  (* 5. Use the known cardinality of permutations from the library *)
-  also have "... = fact n"
-    using card_permutations[OF card_S finite_S] by simp
-
-  finally show ?thesis .
 qed
 
 lemma circular_permutations_partition:
@@ -696,10 +717,395 @@ proof -
   finally show ?thesis .
 qed
 
+lemma \<S>_decomposition_by_A:
+  "card \<S> = (\<Sum>A\<in>\<F>. card {\<Sigma> \<in> circular_permutations S. (\<forall> \<sigma> \<in> \<Sigma>. meets \<sigma> A)})"
+proof -
+  let ?CP = "circular_permutations S"
+  (* Define the fiber: circular permutations satisfying the condition for a fixed A *)
+  let ?Fiber = "\<lambda>A. {\<Sigma> \<in> ?CP. (\<forall> \<sigma> \<in> \<Sigma>. meets \<sigma> A)}"
+
+  (* 1. Establish Finite Properties *)
+  have "finite \<F>"
+    using finite_S F_family_of_k_subsets finite_Pow_iff finite_subset by fastforce
+
+  have "finite ?CP"
+    using card_circular_permutations finite_S
+    card.infinite card_permutations_list circular_permutations_partition finite_UnionD
+    by force
+
+  (* 2. Identify S as a Sigma set (Disjoint Union of fibers) *)
+  (* The definition of S is literally pairs (A, Sigma) satisfying the predicate *)
+  have "\<S> = (SIGMA A:\<F>. ?Fiber A)"
+    unfolding \<S>_def by auto
+
+  (* 3. Apply the Sum Rule for Sigma sets *)
+  then have "card \<S> = card (SIGMA A:\<F>. ?Fiber A)"
+    by simp
+  also have "... = (\<Sum>A\<in>\<F>. card (?Fiber A))"
+    using `finite \<F>` `finite ?CP`
+    by (intro card_SigmaI) auto
+
+  finally show ?thesis .
+qed
+
+lemma card_linear_starts_with_A:
+  assumes "A \<in> \<F>"
+  shows "card {xs. set xs = S \<and> distinct xs \<and> set (take k xs) = A} = fact k * fact (n - k)"
+proof -
+  (* 1. Setup Context *)
+  have "A \<subseteq> S" and "card A = k"
+    using assms F_family_of_k_subsets by auto
+  let ?Rest = "S - A"
+  have "card ?Rest = n - k"
+    using card_S `A \<subseteq> S` `card A = k` finite_S card_Diff_subset
+  by (metis finite_subset)
+  have "finite A" using `A \<subseteq> S` finite_S by (rule finite_subset)
+  have "finite ?Rest" using finite_S by simp
+
+  (* 2. Define the component sets *)
+  let ?PermsA = "{xs. set xs = A \<and> distinct xs}"
+  let ?PermsRest = "{ys. set ys = ?Rest \<and> distinct ys}"
+
+  (* 3. Define the concatenation map *)
+  let ?f = "\<lambda>(xs, ys). xs @ ys"
+  let ?Target = "{xs. set xs = S \<and> distinct xs \<and> set (take k xs) = A}"
+
+  (* 4. Prove Bijection via Concatenation *)
+  have "bij_betw ?f (?PermsA \<times> ?PermsRest) ?Target"
+    unfolding bij_betw_def
+  proof (intro conjI)
+    (* Injectivity: If xs1@ys1 = xs2@ys2 and len(xs1)=len(xs2)=k, then xs1=xs2 and ys1=ys2 *)
+    show "inj_on ?f (?PermsA \<times> ?PermsRest)"
+    proof (rule inj_onI)
+      fix p1 p2
+      assume p1: "p1 \<in> ?PermsA \<times> ?PermsRest" and p2: "p2 \<in> ?PermsA \<times> ?PermsRest"
+      obtain x1 y1 where eq1: "p1 = (x1, y1)" by fastforce
+      obtain x2 y2 where eq2: "p2 = (x2, y2)" by fastforce
+      assume "?f p1 = ?f p2"
+      then have "x1 @ y1 = x2 @ y2" using eq1 eq2 by simp
+
+      (* The length of the first part is fixed at k *)
+      have "length x1 = k" "length x2 = k"
+        using p1 p2 eq1 eq2 `card A = k` distinct_card by fastforce+
+
+      then show "p1 = p2"
+        using `x1 @ y1 = x2 @ y2` eq1 eq2 by simp
+    qed
+
+    (* Surjectivity: Every target list splits into a prefix from A and suffix from S-A *)
+    show "?f ` (?PermsA \<times> ?PermsRest) = ?Target"
+    proof (rule subset_antisym)
+      (* Forward *)
+      show "?f ` (?PermsA \<times> ?PermsRest) \<subseteq> ?Target"
+      proof
+        fix l assume "l \<in> ?f ` (?PermsA \<times> ?PermsRest)"
+        then obtain xs ys where l: "l = xs @ ys"
+          and xs: "xs \<in> ?PermsA" and ys: "ys \<in> ?PermsRest" by auto
+
+        have "set l = A \<union> ?Rest" using l xs ys by simp
+        also have "... = S" using `A \<subseteq> S` by blast
+        finally have set_l: "set l = S" .
+
+        have "distinct l"
+          using l xs ys disjoint_iff_not_equal[of A ?Rest]
+          by simp
+
+        have "length xs = k"
+          using xs `card A = k` distinct_card by fastforce
+        then have "set (take k l) = A"
+          using l xs by simp
+
+        show "l \<in> ?Target" using set_l `distinct l` `set (take k l) = A` by simp
+      qed
+
+      (* Backward *)
+      show "?Target \<subseteq> ?f ` (?PermsA \<times> ?PermsRest)"
+      proof
+        fix l assume "l \<in> ?Target"
+        let ?xs = "take k l"
+        let ?ys = "drop k l"
+
+        have "set ?xs = A" using `l \<in> ?Target` by simp
+        have "distinct ?xs" using `l \<in> ?Target` by simp
+        then have "?xs \<in> ?PermsA" using `set ?xs = A` by simp
+
+        have "set ?ys = set l - set ?xs"
+          proof -
+            have "distinct l" using `l \<in> ?Target` by simp
+            moreover have "l = ?xs @ ?ys"
+              by simp
+            ultimately have "set ?xs \<inter> set ?ys = {}"
+              using distinct_append[of ?xs ?ys] by simp
+            moreover have "set l = set ?xs \<union> set ?ys"
+              using `l = ?xs @ ?ys` by (metis set_append)
+            ultimately show ?thesis
+              by blast
+          qed
+
+        then have "set ?ys = ?Rest"
+          using `l \<in> ?Target` `set ?xs = A` by simp
+        have "?ys \<in> ?PermsRest"
+          using `set ?ys = ?Rest` `l \<in> ?Target` by simp
+
+        have "l = ?f (?xs, ?ys)" by simp
+        then show "l \<in> ?f ` (?PermsA \<times> ?PermsRest)"
+          using `?xs \<in> ?PermsA` `?ys \<in> ?PermsRest` by blast
+      qed
+    qed
+  qed
+
+  (* 5. Calculate Cardinality *)
+  then have "card ?Target = card (?PermsA \<times> ?PermsRest)"
+    by (rule bij_betw_same_card[symmetric])
+  also have "... = card ?PermsA * card ?PermsRest"
+    by (simp add: card_cartesian_product)
+  also have "... = fact k * fact (n - k)"
+    using card_permutations_list_of_set[OF `finite A`]
+          card_permutations_list_of_set[OF `finite ?Rest`]
+          `finite A` `finite ?Rest` `card A = k` `card ?Rest = n - k` by simp
+  finally show ?thesis .
+qed
+
+lemma bij_betw_linear_circular:
+  assumes "A \<in> \<F>"
+  shows "bij_betw (\<lambda>xs. {(x, y). x \<sim>c y} `` {xs})
+          {xs. set xs = S \<and> distinct xs \<and> set (take k xs) = A}
+          {\<Sigma> \<in> circular_permutations S. (\<forall> \<sigma> \<in> \<Sigma>. meets \<sigma> A)}"
+proof -
+  let ?LinearA = "{xs. set xs = S \<and> distinct xs \<and> set (take k xs) = A}"
+  let ?Target = "{\<Sigma> \<in> circular_permutations S. (\<forall> \<sigma> \<in> \<Sigma>. meets \<sigma> A)}"
+  let ?proj = "(\<lambda>xs. {(x, y). x \<sim>c y} `` {xs})"
+
+  show "bij_betw ?proj ?LinearA ?Target"
+    unfolding bij_betw_def
+  proof (intro conjI)
+    (* 1. Injectivity: If two linear lists start with A and are rotations, they are equal *)
+    show "inj_on ?proj ?LinearA"
+    proof (rule inj_onI)
+      fix xs ys assume x: "xs \<in> ?LinearA" and y: "ys \<in> ?LinearA"
+      assume "?proj xs = ?proj ys"
+
+      (* This implies ys is a rotation of xs *)
+      then have "xs \<sim>c ys"
+        using c_reflexive circular_equiv_def Image_singleton_iff equiv_class_eq_iff equiv_circular 
+        by auto
+      then obtain m where m: "ys = rotate m xs" and "m < n"
+        unfolding circular_equiv_def 
+        using x card_S distinct_card mod_less_divisor n_bound zero_less_numeral
+        by (metis (mono_tags, lifting)
+            k_pos le_antisym
+            less_eq_nat.simps(1)
+            mem_Collect_eq mult_pos_pos
+            not_gr_zero
+            rotate_conv_mod)
+
+      (* The indices of A in xs are exactly {0..<k} *)
+      (* If m > 0, the rotation shifts these indices. We show this contradicts set(take k ys) = A *)
+      have "m = 0"
+      proof (rule ccontr)
+        assume "m \<noteq> 0"
+        hence "0 < m" by simp
+
+        (* Consider the element at index 0 in ys. It comes from index m in xs *)
+        have "ys ! 0 = xs ! m"
+          using m `m < n` x card_S distinct_card nth_rotate
+        by (metis (mono_tags, lifting)
+            add.right_neutral
+            length_pos_if_in_set
+            mem_Collect_eq mod_less
+            nth_mem)
+
+        (* ys starts with A, so ys!0 is in A *)
+        have "ys ! 0 \<in> A"
+          using y k_pos x card_S distinct_card hd_in_set list.sel(1) take_hd_drop
+        by (smt (verit) \<open>m < n\<close>
+            gr_implies_not_zero hd_conv_nth
+            hd_take length_0_conv
+            mem_Collect_eq
+            take_eq_Nil)
+
+        (* In xs, A is exactly the first k elements. So m must be < k *)
+        have "m < k"
+          using `ys ! 0 \<in> A` x `ys ! 0 = xs ! m` `m < n` x card_S distinct_card
+          distinct_conv_nth in_set_takeD less_trans nth_take
+        by (smt (verit, ccfv_threshold)
+            in_set_conv_nth length_take
+            mem_Collect_eq
+            min_less_iff_conj)
+
+        (* Now consider the element at index k-1-m in ys *)
+        (* Its original index in xs was (k-1-m + m) = k-1. This is in A. *)
+        (* Its new index in ys is k-1-m. This is < k. *)
+        (* Wait, let's look at element at index k in xs. It is NOT in A. *)
+        have "xs ! k \<notin> A"
+          using x n_bound k_pos x card_S distinct_card
+          distinct_conv_nth in_set_takeD linorder_not_less nth_take
+        by (smt (verit, del_insts)
+            add_diff_cancel_left'
+            add_lessD1 diff_is_0_eq'
+            distinct_Ex1 length_take
+            mem_Collect_eq
+            min_less_iff_conj mult_2
+            nat_less_le)
+
+        (* Where does xs!k land in ys? At index (k - m) mod n. *)
+        (* Since m < k, (k - m) is positive and < k. *)
+        let ?idx = "k - m"
+        have "ys ! ?idx = xs ! ((?idx + m) mod n)"
+           using m x card_S distinct_card `m < n` nth_rotate
+         by (smt (verit) add.commute
+             add_lessD1 ekr_context.n_bound
+             ekr_context_axioms
+             le_add_diff_inverse2
+             less_add_same_cancel2
+             linorder_not_less
+             mem_Collect_eq mult_2
+             nat_diff_split)
+        also have "... = xs ! k" using `m < k`
+        using ekr_context.n_bound
+          ekr_context_axioms
+        by fastforce
+        finally have "ys ! ?idx = xs ! k" .
+
+(* But ?idx < k, so ys ! ?idx must be in A *)
+        have "ys ! ?idx \<in> A"
+          proof -
+            have "?idx < k" 
+              using `0 < m` k_pos by auto
+            then have "ys ! ?idx \<in> set (take k ys)"
+            by (smt (verit, ccfv_SIG) \<open>0 < m\<close>
+                \<open>m < n\<close> \<open>xs \<sim>c ys\<close>
+                \<open>ys ! (k - m) = xs ! ((k - m + m) mod n)\<close>
+                card_S circular_equiv_def
+                distinct_card length_take
+                linorder_not_less
+                mem_Collect_eq
+                min_less_iff_conj
+                mod_less_divisor nth_mem
+                nth_take order_less_trans
+                set_rotate take_all_iff
+                y)
+            then show ?thesis 
+              using y by auto
+          qed
+
+        (* Contradiction: xs!k is in A but we proved it isn't *)
+        show False using `ys ! ?idx \<in> A` `ys ! ?idx = xs ! k` `xs ! k \<notin> A` by simp
+      qed
+
+      then show "xs = ys" using m by simp
+    qed
+
+    (* 2. Surjectivity: Uses meets_class_consistent from your file [cite: 230] *)
+    show "?proj ` ?LinearA = ?Target"
+    proof (rule subset_antisym)
+      show "?proj ` ?LinearA \<subseteq> ?Target"
+      proof
+        fix C assume "C \<in> ?proj ` ?LinearA"
+        then obtain xs where "xs \<in> ?LinearA" and "C = ?proj xs" by auto
+
+        have "C \<in> circular_permutations S"
+          using `xs \<in> ?LinearA` `C = ?proj xs` circular_permutations_def quotientI
+        by (metis (no_types, lifting)
+            mem_Collect_eq)
+
+        (* Use your lemma meets_class_consistent to show property holds for all sigma *)
+        have "meets xs A" unfolding meets_def using `xs \<in> ?LinearA`
+        by (metis (mono_tags, lifting)
+            mem_Collect_eq mod_self
+            rotate_id)
+        then have "\<forall>\<sigma> \<in> C. meets \<sigma> A"
+          using meets_class_consistent[OF `C \<in> circular_permutations S`] `C = ?proj xs`
+          Image_singleton_iff c_reflexive
+        by (metis case_prod_conv
+            mem_Collect_eq)
+
+        then show "C \<in> ?Target" using `C \<in> circular_permutations S` by simp
+      qed
+
+      show "?Target \<subseteq> ?proj ` ?LinearA"
+      proof
+        fix C assume "C \<in> ?Target"
+        then obtain ys where "ys \<in> C" "meets ys A"
+          using circular_permutations_def
+        by (metis (no_types, lifting)
+            UNIV_I equiv_circular
+            equiv_class_self mem_Collect_eq
+            quotientE)
+
+        (* Rotate ys to the position i where it starts with A *)
+        obtain i where "set (take k (rotate i ys)) = A"
+          using `meets ys A` unfolding meets_def by blast
+
+        let ?xs = "rotate i ys"
+        have "?xs \<in> ?LinearA"
+          using `ys \<in> C` `set (take k ?xs) = A` `C \<in> ?Target` circular_permutations_def quotient_def
+          Union_iff distinct_rotate mem_Collect_eq set_rotate
+        by (smt (verit, del_insts)
+            Image_singleton_iff
+            circular_equiv_def quotientE
+            split_conv)
+
+        have "?proj ?xs = C"
+          using `ys \<in> C` `C \<in> ?Target` equiv_circular equiv_class_eq
+          circular_equiv_def length_rotate
+        by (smt (verit, best)
+            Image_singleton_iff
+            case_prod_conv
+            circular_permutations_def
+            mem_Collect_eq
+            quotientE)
+
+        then show "C \<in> ?proj ` ?LinearA" using `?xs \<in> ?LinearA` by blast
+      qed
+    qed
+  qed
+qed
+
+lemma fixed_set_circular_count:
+  assumes "A \<in> \<F>"
+  shows "card {\<Sigma> \<in> circular_permutations S. (\<forall> \<sigma> \<in> \<Sigma>. meets \<sigma> A)} = fact k * fact (n - k)"
+proof -
+  (* 1. Define the set of linear lists starting with A *)
+  let ?LinearA = "{xs. set xs = S \<and> distinct xs \<and> set (take k xs) = A}"
+
+  (* 2. Use the bijection lemma to equate cardinalities *)
+  let ?proj = "(\<lambda>xs. {(x, y). x \<sim>c y} `` {xs})"
+  let ?Target = "{\<Sigma> \<in> circular_permutations S. (\<forall> \<sigma> \<in> \<Sigma>. meets \<sigma> A)}"
+
+  have "bij_betw ?proj ?LinearA ?Target"
+    using bij_betw_linear_circular[OF assms] .
+
+  then have "card ?Target = card ?LinearA"
+    using bij_betw_same_card by force
+
+  (* 3. Substitute the calculated linear count *)
+  also have "... = fact k * fact (n - k)"
+    using card_linear_starts_with_A[OF assms] by simp
+
+  finally show ?thesis .
+qed
+
 lemma \<S>_equality:
   shows "card \<S> = card \<F> * (fact k) * (fact (n - k))"
 proof -
-  show ?thesis sorry
+  (* 1. Decompose S by summing over the sets A in F *)
+  have "card \<S> = (\<Sum>A\<in>\<F>. card {\<Sigma> \<in> circular_permutations S. (\<forall> \<sigma> \<in> \<Sigma>. meets \<sigma> A)})"
+    using \<S>_decomposition_by_A by simp
+
+  (* 2. Substitute the constant count for each term *)
+  also have "... = (\<Sum>A\<in>\<F>. fact k * fact (n - k))"
+    using fixed_set_circular_count by simp
+
+  (* 3. Simplify the sum of a constant *)
+  also have "... = card \<F> * (fact k * fact (n - k))"
+    by simp
+
+  (* 4. Rearrange terms to match the goal *)
+  also have "... = card \<F> * fact k * fact (n - k)"
+    by (simp add: mult.assoc)
+
+  finally show ?thesis .
 qed
 
 
