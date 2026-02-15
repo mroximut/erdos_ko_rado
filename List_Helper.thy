@@ -79,10 +79,27 @@ next
 qed
 
 
-lemma contains_impl_elem:
+lemma not_contains_impl_not_elem: 
   fixes sequence :: "'a list"
   fixes item :: "'a"
-  shows "contains_element item sequence \<longrightarrow> item \<in> set sequence"
-  by (metis in_list index_correct nth_mem contains_element.elims(1))
+  shows "\<not>(contains_element item sequence) \<longrightarrow> item \<notin> set sequence" 
+proof (induction sequence)
+  show "\<not>(contains_element item Nil) \<longrightarrow> item \<notin> set Nil" by auto
+next
+  fix x xs assume IH: "\<not>(contains_element item xs) \<longrightarrow> item \<notin> set xs"
+  then show "\<not>(contains_element item (x # xs)) \<longrightarrow> item \<notin> set (x # xs)" by simp
+qed
+
+lemma contains_eq_elem:
+  fixes sequence :: "'a list"
+  fixes item :: "'a"
+  shows "contains_element item sequence \<longleftrightarrow> item \<in> set sequence"
+proof
+  assume "contains_element item sequence"
+  then show "item \<in> set sequence" by (metis in_list index_correct nth_mem contains_element.elims(1))
+next
+  assume "item \<in> set sequence"
+  then show "contains_element item sequence" using not_contains_impl_not_elem by fastforce
+qed
 
 end
