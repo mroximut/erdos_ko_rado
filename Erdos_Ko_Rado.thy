@@ -1,5 +1,5 @@
 theory Erdos_Ko_Rado imports 
-  Main circular_permutations
+  Main circular_permutations Arcs List_Helper
 begin
 
 definition intersecting :: "'a set set \<Rightarrow> bool" where
@@ -29,6 +29,7 @@ end
 context ekr_context
 begin
 
+
 lemma A_props:
   assumes "A \<in> \<F>"
   shows "card A = k" and "A \<subseteq> S" and "finite A"
@@ -42,7 +43,7 @@ qed
 lemma \<sigma>_props:
   assumes "C \<in> circular_permutations S"
   assumes "\<sigma> \<in> C"
-  shows "distinct \<sigma>" and "set \<sigma> = S"
+  shows "distinct \<sigma>" and "set \<sigma> = S" and "length \<sigma> = n"
 proof -
   show "distinct \<sigma>"  
     using circular_permutations_def assms
@@ -52,7 +53,29 @@ proof -
     using circular_permutations_def assms
     by (smt (verit, best) Image_singleton_iff circular_equiv_def mem_Collect_eq quotientE
         set_rotate split_conv)
+  then show "length \<sigma> = n"
+    using `distinct \<sigma>` card_S distinct_card by fastforce
 qed
+
+lemma meets_card:
+  assumes "\<sigma> meets A" and "distinct \<sigma>"
+  shows "\<exists>i. A = set (take (card A) (rotate i \<sigma>))"
+proof -
+  obtain i j where j: "set (take j (rotate i \<sigma>)) = A"
+    using `\<sigma> meets A` unfolding meets_def by blast
+  let ?L = "rotate i \<sigma>"
+  have "distinct (take j ?L)"
+    using `distinct \<sigma>` by simp
+  then have "length (take j ?L) = card A"
+    using j distinct_card by fastforce
+  then have "take (card A) ?L = take j ?L"
+    by (metis append_eq_conv_conj append_take_drop_id)
+  then have "A = set (take (card A) ?L)"
+    using j by simp
+  then show ?thesis
+    by blast
+qed
+
 
 lemma card_circular_permutations_of_S: "card (circular_permutations S) = fact (n - 1)"
   using card_circular_permutations[OF n_pos finite_S card_S] .
@@ -79,10 +102,98 @@ proof -
 qed
 
 
+lemma katona_circle_claim_trivial:
+  assumes "n \<le> 2"
+  assumes "C \<in> circular_permutations S"
+  shows "card {A \<in> \<F>. (\<forall>\<sigma> \<in> C. \<sigma> meets A)} \<le> k"
+proof -
+  have "k = 1" and "n = 2"
+    using k_pos n_pos n_bound assms(1) by auto
+
+  then have "\<forall>A \<in> \<F>. \<forall>B \<in> \<F>. A = B"
+  proof (intro ballI)
+    fix A B assume "A \<in> \<F>" "B \<in> \<F>"
+    then have "card A = 1" and "card B = 1"
+      using F_family_of_k_subsets `k = 1` by auto
+    moreover have "A \<inter> B \<noteq> {}"
+      using intersecting_F `A \<in> \<F>` `B \<in> \<F>` by (simp add: intersecting_def) 
+    ultimately show "A = B"
+      using card_1_singletonE by blast 
+  qed
+  
+  then have "card \<F> \<le> 1"
+    by (simp add: card_le_Suc0_iff_eq finite_\<F>)
+  let ?MetSets = "{A \<in> \<F>. (\<forall>\<sigma> \<in> C. \<sigma> meets A)}"
+  have "?MetSets \<subseteq> \<F>" 
+    by blast
+  then have "card ?MetSets \<le> card \<F>"
+    using finite_\<F> card_mono by blast
+  then show ?thesis
+    using `k = 1` `card \<F> \<le> 1` by linarith
+qed
+
+
 lemma katona_circle_claim:
   assumes "C \<in> circular_permutations S"
-  shows "card {A \<in> \<F>. (\<forall> \<sigma> \<in> C. \<sigma> meets A)} \<le> k"
-  sorry
+  shows "card {A \<in> \<F>. (\<forall>\<sigma> \<in> C. \<sigma> meets A)} \<le> k"
+proof (cases "n \<le> 2")
+  case True
+  then show ?thesis 
+    using katona_circle_claim_trivial[OF True assms] by simp
+next
+  case False
+  then have "n \<ge> 3"
+    by auto
+  have "C \<noteq> {}" 
+    using card_S n_pos by (metis assms card_gt_0_iff circular_permutations_class_size)
+  then obtain \<sigma> where \<sigma>: "\<sigma> \<in> C"
+    by auto
+  let ?MetSets = "{A \<in> \<F>. (\<forall>\<sigma> \<in> C. \<sigma> meets A)}"
+  let ?Arcs = "list_of (list_of ` ?MetSets)"
+  have "finite ?MetSets"
+    using finite_\<F> by force
+  have set_arcs: "set ?Arcs =  list_of ` ?MetSets" 
+    by (simp add: `finite ?MetSets` list_of_props(1))
+
+  interpret arc_context \<sigma> ?Arcs k
+  proof
+    show "length \<sigma> \<ge> 3" 
+      using `n \<ge> 3` \<sigma> \<sigma>_props assms by auto
+    show "distinct \<sigma>" 
+      using assms \<sigma> \<sigma>_props by simp
+    show "\<forall>arc \<in> set ?Arcs. n_arc_of_cycle arc \<sigma> k"
+    proof
+      fix arc assume arc: "arc \<in> set ?Arcs"
+      have "length arc = k" 
+        using set_arcs A_props list_of_props arc distinct_card by fastforce
+      moreover from this have "arc_of_cycle arc \<sigma>"
+        unfolding arc_of_cycle_def
+        using set_arcs arc
+        unfolding meets_def
+        sorry
+      ultimately show "n_arc_of_cycle arc \<sigma> k" 
+        unfolding n_arc_of_cycle_def by simp
+    qed
+    show "k \<ge> 1" 
+      using k_pos by simp
+    show "2 * k \<le> length \<sigma>" 
+      using assms \<sigma> \<sigma>_props(3) n_bound by simp
+    show "intersecting_n_arcs ?Arcs \<sigma> k" sorry
+    show "distinct ?Arcs" 
+      using list_of_props(2) by (metis (lifting) `finite ?MetSets` finite_imageI)
+  qed
+  
+  have "length ?Arcs \<le> k"
+    using intersecting_n_arcs_upper_limit by blast
+  then have "card (set ?Arcs) \<le> k" 
+    using card_length le_trans by blast
+  then have card_k: "card (set ` set ?Arcs) \<le> k"
+    by (meson List.finite_set card_image_le le_trans)
+  have "set ` set ?Arcs = ?MetSets"
+    using A_props set_arcs by (simp add: `finite ?MetSets` list_of_rec)
+  then show "card ?MetSets \<le> k" 
+    using card_k by simp  
+qed
 
 
 lemma meets_class_consistent:
@@ -366,17 +477,14 @@ proof -
           using circular_permutations_def equiv_circular
           by (metis (no_types, lifting) UNIV_I equiv_class_self mem_Collect_eq quotientE)
 
+        have "distinct ys"
+          using `C \<in> circular_permutations S` `ys \<in> C` \<sigma>_props(1) by simp
         (* Rotate ys to the position i where it starts with A *)
-        obtain i j where "set (take j (rotate i ys)) = A"
-          using `ys meets A` unfolding meets_def by blast
+        obtain i j where "set (take j (rotate i ys)) = A" and "j = card A"
+          using `ys meets A` meets_card[OF `ys meets A` `distinct ys`] by blast
         (* since card A = k, we have: *)
-        moreover from this have "j = k"
-          using A_props[OF assms] \<sigma>_props distinct_rotate distinct_take distinct_card length_take
-          by (metis (no_types, lifting) ext `C \<in> circular_permutations S` `ys \<in> C`
-              add_diff_cancel_left' card_S k_pos n_bound  length_rotate min.idem min_less_iff_conj 
-              mult_2 nat_less_le take_all_iff take_take zero_less_diff)
-        ultimately have "set (take k (rotate i ys)) = A"
-          by simp
+        then have "set (take k (rotate i ys)) = A"
+          using assms A_props by simp
 
         let ?xs = "rotate i ys" (* this is the rotated version of ys starting with A*)
         have "?xs \<in> ?PermsStartingWithA"

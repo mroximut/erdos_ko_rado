@@ -103,4 +103,30 @@ next
   then show "contains_element item sequence" using not_contains_impl_not_elem by fastforce
 qed
 
+
+definition list_of :: "'a set \<Rightarrow> 'a list" where
+  "list_of A = (SOME l. set l = A \<and> distinct l)"
+
+
+lemma list_of_props:
+  assumes "finite S"
+  shows "set (list_of S) = S" and "distinct (list_of S)"
+proof -
+  let ?witness = "(SOME l. set l = S \<and> distinct l)"
+  have "\<exists>l. set l = S \<and> distinct l"
+    using assms finite_distinct_list by auto
+  then have "set ?witness = S \<and> distinct ?witness"
+    by (rule someI_ex)
+  then show "set (list_of S) = S" and "distinct (list_of S)"
+    unfolding list_of_def by auto
+qed
+
+
+lemma list_of_rec:
+  fixes S :: "'a set set"
+  assumes "finite S" and "\<forall> s \<in> S. finite s"
+  shows "set ` list_of ` S = S"
+    using assms(2) list_of_props(1) by fastforce
+
+
 end
