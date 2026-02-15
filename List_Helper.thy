@@ -90,6 +90,7 @@ next
   then show "\<not>(contains_element item (x # xs)) \<longrightarrow> item \<notin> set (x # xs)" by simp
 qed
 
+
 lemma contains_eq_elem:
   fixes sequence :: "'a list"
   fixes item :: "'a"
