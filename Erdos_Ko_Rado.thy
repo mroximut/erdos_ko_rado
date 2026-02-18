@@ -29,6 +29,10 @@ end
 context ekr_context
 begin
 
+definition arc_list :: "'a list \<Rightarrow> 'a set \<Rightarrow> 'a list" where
+  "arc_list \<sigma> A = 
+    take (card A) (rotate (SOME i. i < length \<sigma> \<and> A = set (take (card A) (rotate i \<sigma>))) \<sigma>)"
+
 
 lemma A_props:
   assumes "A \<in> \<F>"
@@ -43,7 +47,7 @@ qed
 lemma \<sigma>_props:
   assumes "C \<in> circular_permutations S"
   assumes "\<sigma> \<in> C"
-  shows "distinct \<sigma>" and "set \<sigma> = S" and "length \<sigma> = n"
+  shows "distinct \<sigma>" and "set \<sigma> = S" and "length \<sigma> = n" and "\<sigma> \<noteq> []"
 proof -
   show "distinct \<sigma>"  
     using circular_permutations_def assms
@@ -55,11 +59,13 @@ proof -
         set_rotate split_conv)
   then show "length \<sigma> = n"
     using `distinct \<sigma>` card_S distinct_card by fastforce
+  then show "\<sigma> \<noteq> []"
+    using n_pos by auto
 qed
 
 lemma meets_card:
-  assumes "\<sigma> meets A" and "distinct \<sigma>"
-  shows "\<exists>i. A = set (take (card A) (rotate i \<sigma>))"
+  assumes "\<sigma> meets A" and "distinct \<sigma>" and "\<sigma> \<noteq> []"
+  shows "\<exists>i. A = set (take (card A) (rotate i \<sigma>)) \<and> i < length \<sigma>"
 proof -
   obtain i j where j: "set (take j (rotate i \<sigma>)) = A"
     using `\<sigma> meets A` unfolding meets_def by blast
@@ -70,11 +76,59 @@ proof -
     using j distinct_card by fastforce
   then have "take (card A) ?L = take j ?L"
     by (metis append_eq_conv_conj append_take_drop_id)
-  then have "A = set (take (card A) ?L)"
+  then have take_card: "A = set (take (card A) ?L)"
     using j by simp
-  then show ?thesis
-    by blast
+  show ?thesis
+  proof (cases "i < length \<sigma>")
+    case True
+    then show ?thesis 
+      using take_card by auto 
+  next
+    case False
+    let ?t = "i mod (length \<sigma>)"
+    have "?t < length \<sigma>"
+      using assms(3) by simp
+    moreover have "rotate i \<sigma> = rotate ?t \<sigma>"
+      by (simp add: rotate_drop_take)
+    ultimately show ?thesis 
+      using take_card by auto
+  qed
 qed
+
+
+lemma arc_list_props:
+  assumes "distinct \<sigma>"
+  assumes "\<sigma> \<noteq> []"
+  assumes "\<sigma> meets A"
+  shows "set (arc_list \<sigma> A) = A" 
+    and "distinct (arc_list \<sigma> A)"
+    and "\<exists>i. arc_list \<sigma> A = (take (card A) (rotate i \<sigma>)) \<and> i < length \<sigma>"
+proof -
+  have "\<exists>i < length \<sigma>. A = set (take (card A) (rotate i \<sigma>))"
+    using assms meets_card by blast
+
+  then show "set (arc_list \<sigma> A) = A"
+    unfolding arc_list_def using someI_ex by (metis (mono_tags, lifting))
+
+  moreover show "distinct (arc_list \<sigma> A)"
+    unfolding arc_list_def using \<sigma>_props by (meson assms distinct_rotate distinct_take)
+
+  ultimately show "\<exists>i. arc_list \<sigma> A = (take (card A) (rotate i \<sigma>)) \<and> i < length \<sigma>" 
+    using meets_card assms
+    by (metis (no_types, lifting) arc_list_def bot_nat_0.not_eq_extremum length_0_conv
+        mod_less_divisor rotate_conv_mod)
+qed
+
+
+lemma arc_list_rec:
+  fixes S' :: "'a set set"
+  assumes "distinct \<sigma>"
+  assumes "\<sigma> \<noteq> []"
+  assumes "\<forall>A \<in> S'. card A = k'"
+  assumes "\<forall>A \<in> S'. \<sigma> meets A"
+  shows "set ` (arc_list \<sigma>) ` S' = S'"
+using assms list_of_props(1) arc_list_props
+by (smt (verit, ccfv_SIG) image_comp image_cong image_ident o_apply)
 
 
 lemma card_circular_permutations_of_S: "card (circular_permutations S) = fact (n - 1)"
@@ -149,36 +203,47 @@ next
   then obtain \<sigma> where \<sigma>: "\<sigma> \<in> C"
     by auto
   let ?MetSets = "{A \<in> \<F>. (\<forall>\<sigma> \<in> C. \<sigma> meets A)}"
-  let ?Arcs = "list_of (list_of ` ?MetSets)"
+  let ?Arcs = "list_of (arc_list \<sigma> ` ?MetSets)"
   have "finite ?MetSets"
     using finite_\<F> by force
-  have set_arcs: "set ?Arcs =  list_of ` ?MetSets" 
+  have set_arcs: "set ?Arcs = arc_list \<sigma> ` ?MetSets" 
     by (simp add: `finite ?MetSets` list_of_props(1))
 
   interpret arc_context \<sigma> ?Arcs k
   proof
     show "length \<sigma> \<ge> 3" 
       using `n \<ge> 3` \<sigma> \<sigma>_props assms by auto
+    then have "\<sigma> \<noteq> []" 
+      by auto
     show "distinct \<sigma>" 
       using assms \<sigma> \<sigma>_props by simp
-    show "\<forall>arc \<in> set ?Arcs. n_arc_of_cycle arc \<sigma> k"
+    show all_arcs :"\<forall>arc \<in> set ?Arcs. n_arc_of_cycle arc \<sigma> k"
     proof
       fix arc assume arc: "arc \<in> set ?Arcs"
-      have "length arc = k" 
-        using set_arcs A_props list_of_props arc distinct_card by fastforce
-      moreover from this have "arc_of_cycle arc \<sigma>"
-        unfolding arc_of_cycle_def
-        using set_arcs arc
-        unfolding meets_def
-        sorry
-      ultimately show "n_arc_of_cycle arc \<sigma> k" 
-        unfolding n_arc_of_cycle_def by simp
+      moreover have "\<sigma> meets (set arc)"
+        using arc set_arcs arc_list_props by (metis (lifting) arc_list_def imageE meets_def)
+      moreover have "distinct arc" 
+        using arc_list_props set_arcs `distinct \<sigma>` \<sigma> `\<sigma> \<noteq> []` arc by fastforce
+      moreover have "length arc = k" and "card (set arc) = k"
+        using set_arcs A_props arc distinct_card arc_list_props `\<sigma> \<noteq> []`
+        by (smt (verit, best) `distinct \<sigma>` \<sigma> imageE mem_Collect_eq)+
+      ultimately obtain i where "i < length \<sigma> \<and> arc = take (card (set arc)) (rotate i \<sigma>)"   
+        using `\<sigma> \<noteq> []` `distinct \<sigma>` \<sigma> arc arc_list_props
+        by (smt (verit, best) imageE mem_Collect_eq set_arcs)
+      then have "arc_of_cycle arc \<sigma>"
+        unfolding arc_of_cycle_def using `card (set arc) = k` `length arc = k` by auto
+      then show "n_arc_of_cycle arc \<sigma> k" 
+        unfolding n_arc_of_cycle_def using `length arc = k` by auto
     qed
     show "k \<ge> 1" 
       using k_pos by simp
     show "2 * k \<le> length \<sigma>" 
       using assms \<sigma> \<sigma>_props(3) n_bound by simp
-    show "intersecting_n_arcs ?Arcs \<sigma> k" sorry
+    show "intersecting_n_arcs ?Arcs \<sigma> k" 
+      unfolding intersecting_n_arcs_def intersecting_arcs_def
+      using \<sigma> set_arcs intersecting_F all_arcs
+      by (smt (verit, del_insts) `\<sigma> \<noteq> []` `distinct \<sigma>` arc_list_props(1)
+        image_iff intersecting_def mem_Collect_eq n_arc_of_cycle_def)
     show "distinct ?Arcs" 
       using list_of_props(2) by (metis (lifting) `finite ?MetSets` finite_imageI)
   qed
@@ -190,7 +255,8 @@ next
   then have card_k: "card (set ` set ?Arcs) \<le> k"
     by (meson List.finite_set card_image_le le_trans)
   have "set ` set ?Arcs = ?MetSets"
-    using A_props set_arcs by (simp add: `finite ?MetSets` list_of_rec)
+    using A_props set_arcs arc_list_props arc_list_rec \<sigma> \<sigma>_props assms
+    by (smt (verit, best) mem_Collect_eq)
   then show "card ?MetSets \<le> k" 
     using card_k by simp  
 qed
@@ -477,11 +543,11 @@ proof -
           using circular_permutations_def equiv_circular
           by (metis (no_types, lifting) UNIV_I equiv_class_self mem_Collect_eq quotientE)
 
-        have "distinct ys"
-          using `C \<in> circular_permutations S` `ys \<in> C` \<sigma>_props(1) by simp
+        have "distinct ys" and  "ys \<noteq> []"
+          using `C \<in> circular_permutations S` `ys \<in> C` \<sigma>_props by simp+
         (* Rotate ys to the position i where it starts with A *)
         obtain i j where "set (take j (rotate i ys)) = A" and "j = card A"
-          using `ys meets A` meets_card[OF `ys meets A` `distinct ys`] by blast
+          using `ys meets A` meets_card[OF `ys meets A` `distinct ys` `ys \<noteq> []`] by blast
         (* since card A = k, we have: *)
         then have "set (take k (rotate i ys)) = A"
           using assms A_props by simp
