@@ -104,6 +104,24 @@ next
 qed
 
 
+lemma shifted_index:
+  fixes list "'a list"
+  fixes element "'a" 
+
+
+lemma first_index:
+  fixes list ::"'a list"
+  shows "list \<noteq> [] \<longrightarrow> index_of_element (hd list) list = 0"
+    by (metis index_of_element.elims list.sel(1))
+
+
+lemma last_index:
+  fixes list ::"'a list"
+  shows "list \<noteq> [] \<and> distinct list  \<longrightarrow> index_of_element (last list) list = length list - 1"
+    by (metis One_nat_def diff_less diff_self_eq_0 distinct_Ex1 index_correct index_limit last_conv_nth 
+    last_in_set lessI less_imp_diff_less nat_less_le not_contains_impl_not_elem not_in_list)
+
+
 definition list_of :: "'a set \<Rightarrow> 'a list" where
   "list_of A = (SOME l. set l = A \<and> distinct l)"
 
