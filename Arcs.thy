@@ -876,7 +876,7 @@ lemma neighbors:
       and "hd right_neighbor_arc \<in> set element_arc"
       and "card left_neighbor_indices = arc_size - 1"
       and "card left_neighbor_indices = card left_neighbors"
-      and "last left_neighbor \<in> set element_arc"
+      and "last left_neighbor_arc \<in> set element_arc"
       and "left_neighbors \<inter> right_neighbors = {}"
       and "right_neighbor_indices = {(index + arc_size) mod (length cycle) | index. index \<in> left_neighbor_indices}"
       and "intersecting_lists element_arc other_arc \<longleftrightarrow> (other_arc \<in> left_neighbors \<or> other_arc \<in> right_neighbors)" sorry
