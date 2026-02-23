@@ -843,32 +843,62 @@ next
   case False
   then obtain shared_element where "shared_element \<in> set cycle" 
     and "\<forall>arc \<in> set arcs. shared_element \<in> set arc"
-    using common_intersection_element 
-    by (metis in_set_member)
+    using common_intersection_element sorry
     
   then show ?thesis 
     using bound_arcs_sharing_element by blast
 qed
 
 
+lemma neighbors:
+  fixes element :: "'a"
+  fixes element_index :: "nat"
+  fixes element_arc :: "'a list"
+  fixes other_arc :: "'a list"
+  fixes left_neighbor_indices :: "nat set"
+  fixes left_neighbors :: "'a list set"
+  fixes left_neighbor_arc :: "'a list"
+  fixes right_neighbor_indices :: "nat set"
+  fixes right_neighbors :: "'a list set"
+  fixes right_neighbor_arc :: "'a list"
+  assumes "element \<in> set cycle"
+  assumes "element_index = index_of_element element cycle"
+  assumes "element_arc = generate_n_arc cycle element_index arc_size"
+  assumes "right_neighbor_indices = {(element_index + shift) mod (length cycle) | shift. 0 < shift \<and> shift < arc_size}"
+  assumes "right_neighbors = {generate_n_arc cycle index arc_size | index. index \<in> right_neighbor_indices}"
+  assumes "right_neighbor_arc \<in> right_neighbors"
+  assumes "left_neigbor_indices = {index :: nat. (\<exists>shift. 0 < shift \<and> shift < arc_size \<and> cycle ! ((index + shift) mod (length cycle)) \<in> set element_arc)}"
+  assumes "left_neighbors = {generate_n_arc cycle index arc_size | index. index \<in> left_neighbor_indices}"
+  assumes "left_neighbor_arc \<in> left_neighbors"
+  assumes "element_arc \<noteq> other_arc"
+  shows "card right_neighbor_indices = arc_size - 1" 
+      and "card right_neighbor_indices = card right_neighbors"
+      and "hd right_neighbor_arc \<in> set element_arc"
+      and "card left_neighbor_indices = arc_size - 1"
+      and "card left_neighbor_indices = card left_neighbors"
+      and "last left_neighbor \<in> set element_arc"
+      and "left_neighbors \<inter> right_neighbors = {}"
+      and "right_neighbor_indices = {(index + arc_size) mod (length cycle) | index. index \<in> left_neighbor_indices}"
+      and "intersecting_lists element_arc other_arc \<longleftrightarrow> (other_arc \<in> left_neighbors \<or> other_arc \<in> right_neighbors)" sorry
+
+
 
 theorem intersecting_n_arcs_upper_limit: "length arcs \<le> arc_size"
-proof -
-  define arc_heads where "arc_heads = map (\<lambda>x. hd x) arcs"
-  have "distinct arc_heads" using arc_heads_def heads_eq by blast
-  then have "length arc_heads = length arcs" using \<open>distinct arc_heads\<close> arc_heads_def by auto
-  define arc_head_indices where "arc_head_indices = map (\<lambda>x. index_of_element x cycle) arc_heads"
-  have "distinct arc_head_indices" by (metis (no_types, lifting) \<open>arc_heads \<equiv> map hd arcs\<close>
-     arc_generator_head arc_head_indices_def distinct_arcs distinct_conv_nth length_map nth_map nth_mem)
-  then have "length arc_head_indices = length arcs" using \<open>distinct arc_head_indices\<close> \<open>arc_heads \<equiv> map hd arcs\<close> arc_head_indices_def by auto
-  define minimum_index where "minimum_index = Min (set arc_head_indices)"
-  define right_neighbor_indices where "right_neighbor_indices = set arc_heads \<inter> set (generate_n_arc cycle minimum_index arc_size)"
-  then have "card right_neighbor_indices \<le> arc_size" 
-    unfolding right_neighbor_indices_def generate_n_arc_def
-    using Int_lower2 card_mono card_length finite_set le_trans length_take
-  by (metis inf_nat_def
-      le_inf_iff)
-  then show ?thesis sorry
+proof cases
+  assume "length arcs = 0"
+  then show ?thesis by simp
+next
+  assume "\<not>(length arcs = 0)"
+  then have "length arcs \<noteq> 0" by simp
+  then have "length arcs > 0" by simp
+  fix arc
+  assume "arc \<in> set arcs"
+  define arc_index where "arc_index = index_of_element (hd arc) cycle"
+  define right_neighbor_indices where "right_neighbor_indices  = {(arc_index + shift) mod (length cycle) | shift. 0 < shift \<and> shift < arc_size}"
+  define right_neighbors where "right_neighbors = {generate_n_arc cycle index arc_size | index. index \<in> right_neighbor_indices}"
+  define left_neighbor_indices where "left_neighbor_indices = {index :: nat. (\<exists>shift. 0 < shift \<and> shift < arc_size \<and> cycle ! ((index + shift) mod (length cycle)) \<in> set arc)}"
+  define left_neighbors where "left_neighbors = {generate_n_arc cycle index arc_size | index. index \<in> left_neighbor_indices}"
+  have "\<forall>some_arc \<in> set arcs. some_arc \<noteq> arc \<longrightarrow> some_arc \<in> left_neighbors \<or> some_arc \<in> right_neighbors" using neighbors sorry 
 qed
 
 
