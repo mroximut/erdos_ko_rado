@@ -393,7 +393,127 @@ lemma head_distance_intersecting_distance:
   assumes "first_head_index = index_of_element first_head cycle"
   assumes "second_head_index = index_of_element second_head cycle"
   shows "index_distance (length cycle) first_head_index second_head_index < arc_size \<longrightarrow> intersecting_lists first_arc second_arc"
+proof (rule impI)
+  assume "index_distance (length cycle) first_head_index second_head_index < arc_size"
+  
+(* Step 1: Unfold the distance definition into the 4 possible linear cases *)
+  hence dist_cases: 
+    "(first_head_index \<ge> second_head_index \<and> first_head_index - second_head_index < arc_size) \<or>
+     (first_head_index \<ge> second_head_index \<and> length cycle - (first_head_index - second_head_index) < arc_size) \<or>
+     (second_head_index \<ge> first_head_index \<and> second_head_index - first_head_index < arc_size) \<or>
+     (second_head_index \<ge> first_head_index \<and> length cycle - (second_head_index - first_head_index) < arc_size)"
+  proof (cases "first_head_index > second_head_index")
+    case True
+    then have "first_head_index \<ge> second_head_index" by simp
+    moreover have "Min {first_head_index - second_head_index, length cycle - (first_head_index - second_head_index)} < arc_size"
+      using \<open>index_distance (length cycle) first_head_index second_head_index < arc_size\<close> True 
+      unfolding index_distance_def by simp
+    ultimately show ?thesis by force
+  next
+    case False
+    then have "second_head_index \<ge> first_head_index" by simp
+    moreover have "Min {second_head_index - first_head_index, length cycle - (second_head_index - first_head_index)} < arc_size"
+      using \<open>index_distance (length cycle) first_head_index second_head_index < arc_size\<close> False 
+      unfolding index_distance_def by simp
+    ultimately show ?thesis by force
+  qed
+  (* Step 2: Explicitly construct the offsets k and m where the arcs intersect *)
+  have shared_element_exists: "\<exists>k < arc_size. \<exists>m < arc_size. (first_head_index + k) mod length cycle = (second_head_index + m) mod length cycle"
+    using dist_cases
+  proof (elim disjE)
+    assume a: "first_head_index \<ge> second_head_index \<and> first_head_index - second_head_index < arc_size"
+    have "(first_head_index + 0) mod length cycle = (second_head_index + (first_head_index - second_head_index)) mod length cycle"
+      using a by simp
+    thus ?thesis using a minimal_arc_size
+    using arc_size by blast
+  next
+    assume a: "first_head_index \<ge> second_head_index \<and> length cycle - (first_head_index - second_head_index) < arc_size"
+    have "(first_head_index + (length cycle - (first_head_index - second_head_index))) = length cycle + second_head_index"
+      using a
+    by (simp add: add.commute assms(5)
+        index_limit
+        trans_le_add2)
+    hence "(first_head_index + (length cycle - (first_head_index - second_head_index))) mod length cycle = (length cycle + second_head_index) mod length cycle"
+      by simp
+    also have "... = second_head_index mod length cycle"
+      by simp
+    also have "... = (second_head_index + 0) mod length cycle"
+      by simp
+    finally have "(first_head_index + (length cycle - (first_head_index - second_head_index))) mod length cycle = (second_head_index + 0) mod length cycle" .
+    thus ?thesis using a minimal_arc_size
+    using arc_size by blast
+  next
+    assume a: "second_head_index \<ge> first_head_index \<and> second_head_index - first_head_index < arc_size"
+    have "(second_head_index + 0) mod length cycle = (first_head_index + (second_head_index - first_head_index)) mod length cycle"
+      using a by simp
+    hence "(first_head_index + (second_head_index - first_head_index)) mod length cycle = (second_head_index + 0) mod length cycle"
+      by simp
+    thus ?thesis using a minimal_arc_size
+    using arc_size by blast
+  next
+    assume a: "second_head_index \<ge> first_head_index \<and> length cycle - (second_head_index - first_head_index) < arc_size"
+    have "(second_head_index + (length cycle - (second_head_index - first_head_index))) = length cycle + first_head_index"
+      using a
+    by (simp add: add.commute assms(6)
+        index_limit
+        trans_le_add2)
+    hence "(second_head_index + (length cycle - (second_head_index - first_head_index))) mod length cycle = (length cycle + first_head_index) mod length cycle"
+      by simp
+    also have "... = first_head_index mod length cycle"
+      by simp
+    also have "... = (first_head_index + 0) mod length cycle"
+      by simp
+    finally have "(second_head_index + (length cycle - (second_head_index - first_head_index))) mod length cycle = (first_head_index + 0) mod length cycle" .
+    hence "(first_head_index + 0) mod length cycle = (second_head_index + (length cycle - (second_head_index - first_head_index))) mod length cycle"
+      by simp
+    thus ?thesis using a minimal_arc_size
+    using arc_size by blast
+  qed
 
+  then obtain k m where "k < arc_size" and "m < arc_size" 
+    and match_eq: "(first_head_index + k) mod length cycle = (second_head_index + m) mod length cycle"
+    by blast
+
+  (* Step 3: Prove that the matched indices fall inside both arcs *)
+  have elem_in_first: "cycle ! ((first_head_index + k) mod length cycle) \<in> set first_arc"
+  proof -
+    have "length (rotate first_head_index cycle) = length cycle" by simp
+    moreover have "arc_size \<le> length cycle" using maximum_arc_size by linarith
+    ultimately have "length first_arc = arc_size" 
+      using assms(1) unfolding generate_n_arc_def by simp
+    hence "first_arc ! k \<in> set first_arc" using \<open>k < arc_size\<close> nth_mem by blast
+    moreover have "first_arc ! k = rotate first_head_index cycle ! k"
+      using assms(1) \<open>k < arc_size\<close> unfolding generate_n_arc_def by simp
+    moreover have "rotate first_head_index cycle ! k = cycle ! ((first_head_index + k) mod length cycle)"
+    by (meson
+        \<open>arc_size \<le> length cycle\<close>
+        \<open>k < arc_size\<close> nth_rotate
+        order_less_le_trans)
+    ultimately show ?thesis by simp
+  qed
+
+  have elem_in_second: "cycle ! ((second_head_index + m) mod length cycle) \<in> set second_arc"
+  proof -
+    have "length (rotate second_head_index cycle) = length cycle" by simp
+    moreover have "arc_size \<le> length cycle" using maximum_arc_size by linarith
+    ultimately have "length second_arc = arc_size" 
+      using assms(2) unfolding generate_n_arc_def by simp
+    hence "second_arc ! m \<in> set second_arc" using \<open>m < arc_size\<close> nth_mem by blast
+    moreover have "second_arc ! m = rotate second_head_index cycle ! m"
+      using assms(2) \<open>m < arc_size\<close> unfolding generate_n_arc_def by simp
+    moreover have "rotate second_head_index cycle ! m = cycle ! ((second_head_index + m) mod length cycle)"
+    by (meson
+        \<open>arc_size \<le> length cycle\<close>
+        \<open>m < arc_size\<close> nth_rotate
+        order_less_le_trans)
+    ultimately show ?thesis by simp
+  qed
+
+  (* Step 4: Conclude they intersect using our definition directly *)
+  show "intersecting_lists first_arc second_arc"
+    unfolding intersecting_lists_def
+    using elem_in_first elem_in_second match_eq by force
+qed
 
 lemma intersecting_endpoints_part1:
   fixes arc1 arc2 :: "'a list"
@@ -435,9 +555,301 @@ next
     then have "\<not>intersecting_lists arc1 arc2" by (simp add: intersecting_lists_eq)
     then show False by (metis \<open>\<not> intersecting_lists arc1 arc2\<close> assms(1) intersecting_arcs assms(2) intersecting_n_arcs_def intersecting_arcs_def)
   qed
-  have "last arc2 \<in> set arc1" sorry
+ have "last arc2 \<in> set arc1"
+  proof -
+    have len1: "length arc1 = arc_size" and len2: "length arc2 = arc_size"
+      using assms(1,2) intersecting_arcs intersecting_n_arcs_def by auto
+
+    have "intersecting_lists arc1 arc2"
+      using assms(1,2) intersecting_arcs intersecting_arcs_def intersecting_n_arcs_def by blast
+    then obtain x where "x \<in> set arc1" and "x \<in> set arc2"
+      unfolding intersecting_lists_def by auto
+
+    have "\<exists>idx1 < arc_size. x = arc1 ! idx1"
+      by (metis \<open>x \<in> set arc1\<close> in_set_conv_nth len1)
+    then obtain idx1 where "idx1 < arc_size" and "x = arc1 ! idx1" by blast
+
+    have "\<exists>idx2 < arc_size. x = arc2 ! idx2"
+      by (metis \<open>x \<in> set arc2\<close> in_set_conv_nth len2)
+    then obtain idx2 where "idx2 < arc_size" and "x = arc2 ! idx2" by blast
+
+    have arc1_gen: "arc1 = generate_n_arc cycle arc1_head_index arc_size"
+      using assms(1,3) arc_generator_head by simp
+    have arc2_gen: "arc2 = generate_n_arc cycle arc2_head_index arc_size"
+      using assms(2,4) arc_generator_head by simp
+
+    have x_val1: "x = cycle ! ((arc1_head_index + idx1) mod length cycle)"
+      using \<open>x = arc1 ! idx1\<close> arc1_gen \<open>idx1 < arc_size\<close>
+      unfolding generate_n_arc_def
+    by (metis
+        \<open>arc_size \<le> arc_distance\<close>
+        add_diff_inverse_nat
+        assms(4,5,6) index_limit le_add2
+        nat_less_le nth_rotate nth_take
+        order_less_le_trans)
+
+    have x_val2: "x = cycle ! ((arc2_head_index + idx2) mod length cycle)"
+      using \<open>x = arc2 ! idx2\<close> arc2_gen \<open>idx2 < arc_size\<close>
+      unfolding generate_n_arc_def
+    by (metis
+        \<open>arc_size \<le> arc_distance\<close>
+        assms(4,6) diff_le_self
+        index_limit nth_rotate nth_take
+        order_less_le_trans)
+
+    have arc1_bound: "arc1_head_index + idx1 < length cycle"
+      using \<open>arc_distance \<ge> arc_size\<close> assms(5,6) \<open>idx1 < arc_size\<close>
+    by (metis add_diff_inverse_nat
+        assms(4) index_limit
+        nat_add_left_cancel_less
+        nat_less_le
+        order_less_le_trans)
+    hence x_cycle_idx1: "((arc1_head_index + idx1) mod length cycle) = arc1_head_index + idx1"
+      by simp
+
+    have "arc_size > 0" using minimal_arc_size by auto
+    hence "hd arc2 \<in> set arc2" using len2 by (metis hd_in_set length_greater_0_conv)
+    hence arc2_head_bound: "arc2_head_index < length cycle"
+      using assms(2,4) index_of_arc_elements_exist by metis
+
+    have wrap2: "arc2_head_index + idx2 \<ge> length cycle"
+    proof (rule ccontr)
+      assume "\<not> (arc2_head_index + idx2 \<ge> length cycle)"
+      hence "arc2_head_index + idx2 < length cycle" by simp
+      hence x_cycle_idx2_false: "((arc2_head_index + idx2) mod length cycle) = arc2_head_index + idx2" by simp
+      
+      have "cycle ! (arc1_head_index + idx1) = cycle ! (arc2_head_index + idx2)"
+        using x_val1 x_val2 x_cycle_idx1 x_cycle_idx2_false by simp
+      hence "arc1_head_index + idx1 = arc2_head_index + idx2"
+        using cycle_elements_distinct arc1_bound \<open>arc2_head_index + idx2 < length cycle\<close>
+        by (simp add: nth_eq_iff_index_eq)
+      
+      moreover have "arc1_head_index + idx1 < arc2_head_index"
+        using assms(6) \<open>arc_distance \<ge> arc_size\<close> \<open>idx1 < arc_size\<close> by linarith
+      ultimately show False by simp
+    qed
+
+    have "arc2_head_index + idx2 < 2 * length cycle"
+      using arc2_head_bound \<open>idx2 < arc_size\<close> maximum_arc_size by linarith
+    hence wrap2_mod: "((arc2_head_index + idx2) mod length cycle) = arc2_head_index + idx2 - length cycle"
+      using wrap2 by (simp add: mod_if)
+
+    have "cycle ! (arc1_head_index + idx1) = cycle ! (arc2_head_index + idx2 - length cycle)"
+      using x_val1 x_val2 x_cycle_idx1 wrap2_mod by simp
+    moreover have "arc2_head_index + idx2 - length cycle < length cycle"
+      using arc2_head_bound \<open>idx2 < arc_size\<close> maximum_arc_size by linarith
+    ultimately have match_idx: "arc1_head_index + idx1 = arc2_head_index + idx2 - length cycle"
+      using cycle_elements_distinct arc1_bound
+      by (simp add: nth_eq_iff_index_eq)
+
+    have last_idx: "last arc2 = arc2 ! (arc_size - 1)"
+      using len2 \<open>arc_size > 0\<close>
+    using last_conv_nth
+    by auto
+
+    have last_val: "last arc2 = cycle ! ((arc2_head_index + arc_size - 1) mod length cycle)"
+      using last_idx arc2_gen \<open>arc_size > 0\<close>
+      unfolding generate_n_arc_def
+    by (metis (no_types, lifting) ext
+        Nat.add_diff_assoc One_nat_def
+        diff_diff_cancel diff_le_self
+        diff_self_eq_0 len2
+        length_rotate linorder_not_less
+        minimal_arc_size nat.simps(3)
+        nat_less_le nth_rotate nth_take
+        order_less_le_trans
+        take_all_iff)
+
+    have last_wrap: "arc2_head_index + arc_size - 1 \<ge> length cycle"
+      using wrap2 \<open>idx2 < arc_size\<close> by linarith
+      
+    have "arc2_head_index + arc_size - 1 < 2 * length cycle"
+      using arc2_head_bound maximum_arc_size by linarith
+    hence mod_last: "((arc2_head_index + arc_size - 1) mod length cycle) = arc2_head_index + arc_size - 1 - length cycle"
+      using last_wrap by (simp add: mod_if)
+
+    define shift where "shift = arc2_head_index + arc_size - 1 - length cycle - arc1_head_index"
+    
+    have "arc2_head_index + arc_size - 1 = arc2_head_index + idx2 + (arc_size - 1 - idx2)"
+      using \<open>idx2 < arc_size\<close> by linarith
+    hence "shift = (arc2_head_index + idx2 + (arc_size - 1 - idx2)) - length cycle - arc1_head_index"
+      unfolding shift_def by simp
+    also have "... = (arc2_head_index + idx2 - length cycle) + (arc_size - 1 - idx2) - arc1_head_index"
+      using wrap2 by linarith
+    also have "... = arc1_head_index + idx1 + (arc_size - 1 - idx2) - arc1_head_index"
+      using match_idx by simp
+    finally have "shift = idx1 + (arc_size - 1 - idx2)"
+      by simp
+    hence "shift < arc_size"
+      using \<open>idx1 < arc_size\<close> \<open>idx2 < arc_size\<close> 
+    using arc2_head_bound assms(5) last_wrap local.shift_def by linarith
+
+    have "arc1_head_index + shift = arc2_head_index + arc_size - 1 - length cycle"
+      using shift_def match_idx \<open>idx2 < arc_size\<close> by linarith
+    hence "(arc1_head_index + shift) mod length cycle = (arc2_head_index + arc_size - 1) mod length cycle"
+      using mod_last 
+    by (metis
+        mod_mod_trivial)
+    hence "last arc2 = cycle ! ((arc1_head_index + shift) mod length cycle)"
+      using last_val by simp
+
+    thus "last arc2 \<in> set arc1"
+      using elements_of_arc[OF assms(1) refl assms(3)] \<open>shift < arc_size\<close> by auto
+  qed
   then show ?thesis by simp
 qed
+
+(* * PHASE 1: If all arcs in our set share a specific element, 
+ * the total number of distinct arcs cannot exceed arc_size.
+ *)
+lemma bound_arcs_sharing_element:
+  fixes shared_element :: "'a"
+  assumes "shared_element \<in> set cycle"
+  assumes "\<forall>arc \<in> set arcs. shared_element \<in> set arc"
+  shows "length arcs \<le> arc_size"
+proof -
+  (* Map each arc to the index of the shared element within that arc *)
+  define f where "f = (\<lambda>arc. index_of_element shared_element arc)"
+ have "inj_on f (set arcs)"
+  proof (rule inj_onI)
+    fix arc1 arc2
+    assume a1: "arc1 \<in> set arcs" and a2: "arc2 \<in> set arcs"
+    assume eq: "f arc1 = f arc2"
+    
+    have h1: "index_of_element shared_element cycle = 
+              (index_of_element (hd arc1) cycle + f arc1) mod (length cycle)"
+      using a1 assms(2) arc_element_index_to_cycle_index f_def by fastforce
+      
+    have h2: "index_of_element shared_element cycle = 
+              (index_of_element (hd arc2) cycle + f arc2) mod (length cycle)"
+      using a2 assms(2) arc_element_index_to_cycle_index f_def by fastforce
+      
+    have eq_mod: "(index_of_element (hd arc1) cycle + f arc1) mod (length cycle) = 
+                  (index_of_element (hd arc2) cycle + f arc1) mod (length cycle)"
+      using h1 h2 eq by presburger
+      
+    (* Explicitly prove the head elements exist in the arcs so we can bound their indices *)
+    have bound1: "index_of_element (hd arc1) cycle < length cycle"
+      using a1 arc_size index_of_arc_elements_exist length_greater_0_conv list.set_sel(1)
+    by (metis fixed_arc_size
+        n_arc_of_cycle_def)
+      
+    have bound2: "index_of_element (hd arc2) cycle < length cycle"
+      using a2 arc_size  index_of_arc_elements_exist length_greater_0_conv list.set_sel(1)
+    by (metis intersecting_arcs
+        intersecting_n_arcs_def)
+      
+
+(* Step 1: Cancel the common '+ f arc1' inside the modulo *)
+    have "index_of_element (hd arc1) cycle mod length cycle = 
+          index_of_element (hd arc2) cycle mod length cycle"
+    proof -
+      (* First, strictly bound the shift f arc1 *)
+      have "shared_element \<in> set arc1" using a1 assms(2) by blast
+      moreover have "length arc1 = arc_size" 
+        using a1 intersecting_arcs intersecting_n_arcs_def by auto
+      ultimately have "f arc1 < arc_size" unfolding f_def 
+        by (metis index_limit nat_less_le not_contains_impl_not_elem not_in_list)
+      then have f_bound: "f arc1 < length cycle" 
+        using maximum_arc_size by linarith
+
+      (* Define variables to force Isabelle to use simple linear arithmetic *)
+      define A where "A = index_of_element (hd arc1) cycle"
+      define B where "B = index_of_element (hd arc2) cycle"
+      define C where "C = f arc1"
+      define N where "N = length cycle"
+      
+      have "A < N" and "B < N" and "C < N" 
+        using bound1 bound2 f_bound A_def B_def C_def
+      using N_def by fastforce+
+        
+      have "(A + C) mod N = (B + C) mod N" 
+        using eq_mod A_def B_def C_def N_def by simp
+        
+      (* Use mod_if to unroll the modulo into two pure algebraic possibilities *)
+      have "A + C < 2 * N" using \<open>A < N\<close> \<open>C < N\<close> by linarith
+      then have A_cases: "(A + C) mod N = A + C \<or> (A + C) mod N = A + C - N"
+      by (metis add_less_cancel_right
+          le_add_diff_inverse2 le_mod_geq
+          linorder_not_less mod_less mult_2)
+        
+      have "B + C < 2 * N" using \<open>B < N\<close> \<open>C < N\<close> by linarith
+      then have B_cases: "(B + C) mod N = B + C \<or> (B + C) mod N = B + C - N"
+      using mod_if by auto
+
+      (* linarith easily crushes the remaining pure linear algebra *)
+      have "A = B"
+        using A_cases B_cases \<open>(A + C) mod N = (B + C) mod N\<close> \<open>A < N\<close> \<open>B < N\<close>
+      by (smt (z3) add_diff_cancel_left'
+          add_right_cancel diff_commute diff_diff_cancel
+          diff_is_0_eq' linorder_not_less mod_less
+          nat_less_le)
+        
+      then show ?thesis 
+        unfolding A_def B_def by simp
+    qed
+      
+    (* Step 2: Because both values are strictly less than 'length cycle', 
+       we can safely drop the modulo entirely *)
+    then have "index_of_element (hd arc1) cycle = index_of_element (hd arc2) cycle"
+      using bound1 bound2 by simp
+      
+    then show "arc1 = arc2"
+      using a1 a2 arc_heads_define_n_arcs cycle_elements_distinct
+    by (metis arc_generator_head)
+  qed
+  
+  moreover have "f ` (set arcs) \<subseteq> {0..<arc_size}"
+  proof
+    fix x
+    assume "x \<in> f ` (set arcs)"
+    then obtain arc where "arc \<in> set arcs" and "x = f arc" by blast
+    then have "x = index_of_element shared_element arc" using f_def by simp
+    moreover have "length arc = arc_size" 
+      using \<open>arc \<in> set arcs\<close> intersecting_arcs intersecting_n_arcs_def by auto
+    ultimately show "x \<in> {0..<arc_size}"
+      using \<open>arc \<in> set arcs\<close> assms(2) index_limit
+    by (metis atLeast0LessThan le_antisym lessThan_iff
+        linorder_not_le not_contains_impl_not_elem
+        not_in_list)
+  qed
+  
+  ultimately have "card (set arcs) \<le> card {0..<arc_size}"
+    by (meson card_inj_on_le finite_atLeastLessThan)
+    
+  then show ?thesis
+    using distinct_arcs distinct_card by fastforce
+qed
+
+
+(* * PHASE 2: Helly's Property for Circular Arcs.
+ * Because 2 * arc_size <= length cycle and the arcs mutually intersect, 
+ * there MUST be at least one global shared element among all of them.
+ *)
+lemma common_intersection_element:
+  assumes "arcs \<noteq> []"
+  shows "\<exists>shared_element \<in> set cycle. \<forall>arc \<in> set arcs. shared_element \<in> set arc"
+  sorry
+
+
+(* * FINAL THEOREM: Tying it together.
+ *)
+theorem intersecting_n_arcs_upper_limit_: 
+  shows "length arcs \<le> arc_size"
+proof (cases "arcs = []")
+  case True
+  then show ?thesis using minimal_arc_size by simp
+next
+  case False
+  then obtain shared_element where "shared_element \<in> set cycle" 
+    and "\<forall>arc \<in> set arcs. shared_element \<in> set arc"
+    using common_intersection_element 
+    by (metis in_set_member)
+    
+  then show ?thesis 
+    using bound_arcs_sharing_element by blast
+qed
+
 
 
 theorem intersecting_n_arcs_upper_limit: "length arcs \<le> arc_size"
@@ -451,7 +863,12 @@ proof -
   then have "length arc_head_indices = length arcs" using \<open>distinct arc_head_indices\<close> \<open>arc_heads \<equiv> map hd arcs\<close> arc_head_indices_def by auto
   define minimum_index where "minimum_index = Min (set arc_head_indices)"
   define right_neighbor_indices where "right_neighbor_indices = set arc_heads \<inter> set (generate_n_arc cycle minimum_index arc_size)"
-  then have "card right_neighbor_indices \<le> arc_size"
+  then have "card right_neighbor_indices \<le> arc_size" 
+    unfolding right_neighbor_indices_def generate_n_arc_def
+    using Int_lower2 card_mono card_length finite_set le_trans length_take
+  by (metis inf_nat_def
+      le_inf_iff)
+  then show ?thesis sorry
 qed
 
 
