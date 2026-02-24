@@ -1,9 +1,16 @@
 theory circular_permutations imports Main "HOL-Combinatorics.Permutations"
 begin
+(*
+  This theory defines what a circular permutation is and counts them.
+*)
 
+
+
+(* A permutation of a set is represented as a list *)
 definition permutation_of :: "'a list \<Rightarrow> 'a set \<Rightarrow> bool" (infix "permutation-of" 50) where
   "xs permutation-of S \<longleftrightarrow> (set xs = S \<and> distinct xs)"
 
+(* Two permutations are circularly equivalent if they can be turned into one another using rotation *)
 definition circular_equiv :: "'a list \<Rightarrow> 'a list \<Rightarrow> bool" (infix "\<sim>c" 50) where
   "xs \<sim>c ys \<longleftrightarrow> (length xs = length ys \<and> (\<exists>n. ys = rotate n xs))"
 
@@ -58,7 +65,9 @@ lemma equiv_circular: "equiv UNIV {(x, y). x \<sim>c y}"
       intro: c_reflexive c_symmetric c_transitive)
 
 (* The set of circular permutations of a set consists of equivalence classes,
-   each class corresponding to a different circular permutation.  *)
+   each class corresponding to a different circular permutation.  
+   An element C of "circular permutations S" denotes a circular permutation of S.
+*)
 definition circular_permutations :: "'a set \<Rightarrow> ('a list set) set" where
   "circular_permutations S = 
     {xs :: 'a list. set xs = S \<and> distinct xs} // {(x, y). x \<sim>c y}"
@@ -298,7 +307,7 @@ proof -
     using partition by simp
 qed
 
-
+(* There are (n-1)! many circular permutations of an n-element set *)
 theorem card_circular_permutations: 
   assumes n_pos: "n > 0"
   assumes finite_S: "finite S"

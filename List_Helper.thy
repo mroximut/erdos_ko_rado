@@ -170,10 +170,12 @@ lemma last_index:
     last_in_set lessI less_imp_diff_less nat_less_le not_contains_impl_not_elem not_in_list)
 
 
+(* Get a list representation of a set (an arbitrary permutation) *)
 definition list_of :: "'a set \<Rightarrow> 'a list" where
   "list_of A = (SOME l. set l = A \<and> distinct l)"
 
 
+(* list_of indeed returns a permutation of the underlying set *) 
 lemma list_of_props:
   assumes "finite S"
   shows "set (list_of S) = S" and "distinct (list_of S)"

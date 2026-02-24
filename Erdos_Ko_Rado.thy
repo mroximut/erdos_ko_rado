@@ -1,14 +1,23 @@
 theory Erdos_Ko_Rado imports 
   Main circular_permutations Arcs List_Helper
 begin
+(* 
+  This theory contains the proof of the Erdos-Ko-Rado theorem using the lemmas from other files.
+*)
 
+
+
+(* A family of sets is intersecting if all the sets in it are pairwise intersecting *)
 definition intersecting :: "'a set set \<Rightarrow> bool" where
   "intersecting F \<longleftrightarrow> (\<forall>A \<in> F. \<forall>B \<in> F. A \<inter> B \<noteq> {})"
 
+(* Our assumptions for the Erdös-Ko-Rado theorem 
+   S is the base set of size n. \<F> is an intersecting family of k-subsets of S.
+*)
 locale ekr_context =
   fixes n k :: nat
   fixes S :: "'a set"
-  fixes \<F> :: "'a set set"
+  fixes \<F> :: "'a set set" 
   assumes finite_S: "finite S"
   assumes card_S: "card S = n"
   assumes n_pos: "n > 0"
@@ -18,9 +27,16 @@ locale ekr_context =
   assumes intersecting_F: "intersecting \<F>"
 begin
 
+(* A permutation meets a set if there is a subsequence of the permutation that only consists of A's elements *)
 definition meets :: "'a list \<Rightarrow> 'a set \<Rightarrow> bool" (infix "meets" 50) where
   "\<sigma> meets A \<longleftrightarrow> (\<exists>i k. A = set (take k (rotate i \<sigma>)))"
 
+(* The is the set we will double count later. Consists of (A, C) pairs where A is a set in the 
+   fixed but arbitrary k-family \<F>, and C is a circular permutation meeting A.
+   A circular permutation C is an equivalence class  of permutations as defined in circular_permutations.thy
+   A circular permutations C meets a set, if every(or equivalently only one) permutation 
+    in the equivalence class C  meets this set.
+*)
 definition \<S> :: "('a set \<times> 'a list set) set" where 
   "\<S> = {(A, C). A \<in> \<F> \<and> (C \<in> circular_permutations S) \<and> (\<forall>\<sigma> \<in> C. \<sigma> meets A)}"
 
@@ -29,11 +45,14 @@ end
 context ekr_context
 begin
 
+(* If \<sigma> meets A, we use this to obtain the subsequence of \<sigma> (adhering to \<sigma>'s ordering) 
+   that consists of A's elements *)
 definition arc_list :: "'a list \<Rightarrow> 'a set \<Rightarrow> 'a list" where
   "arc_list \<sigma> A = 
     take (card A) (rotate (SOME i. i < length \<sigma> \<and> A = set (take (card A) (rotate i \<sigma>))) \<sigma>)"
 
 
+(* Basic facts about a k-subset of S *)
 lemma A_props:
   assumes "A \<in> \<F>"
   shows "card A = k" and "A \<subseteq> S" and "finite A"
@@ -44,6 +63,8 @@ proof -
     using `A \<subseteq> S` finite_S finite_subset by auto
 qed
 
+
+(* Basic facts about a permutation inside an equivalence class C (C corresponds to a circular permutation)  *)
 lemma \<sigma>_props:
   assumes "C \<in> circular_permutations S"
   assumes "\<sigma> \<in> C"
@@ -64,6 +85,9 @@ proof -
 qed
 
 
+(* If a permutations meets a set A, then there is rotation amount less than the length of the permutation
+   such that after that rotation the permutation starts with the elements of A.
+ *)
 lemma meets_card:
   assumes "\<sigma> meets A" and "distinct \<sigma>" and "\<sigma> \<noteq> []"
   shows "\<exists>i. A = set (take (card A) (rotate i \<sigma>)) \<and> i < length \<sigma>"
@@ -97,6 +121,7 @@ proof -
 qed
 
 
+(* Basic facts about arc_list function*)
 lemma arc_list_props:
   assumes "distinct \<sigma>"
   assumes "\<sigma> \<noteq> []"
@@ -119,7 +144,6 @@ proof -
     by (metis (no_types, lifting) arc_list_def bot_nat_0.not_eq_extremum length_0_conv
         mod_less_divisor rotate_conv_mod)
 qed
-
 
 lemma arc_list_rec:
   fixes S' :: "'a set set"
@@ -189,9 +213,9 @@ proof -
 qed
 
 
-(* The number of k-subsets met by any circular permutaion is at most k 
+(* The number of k-subsets met by any circular permutation is at most k.
    This is proved using the Arcs theory. *)
-lemma katona_circle_claim:
+theorem katona_circle_claim:
   assumes "C \<in> circular_permutations S"
   shows "card {A \<in> \<F>. (\<forall>\<sigma> \<in> C. \<sigma> meets A)} \<le> k"
 proof (cases "n \<le> 2")
@@ -267,6 +291,9 @@ next
 qed
 
 
+(* If only one permutation from class C meets A, then every permutation from C meets A.
+   In that case we say: the circular permutation C meets A.
+*)
 lemma meets_class_consistent:
   assumes "C \<in> circular_permutations S"
   assumes "\<sigma>1 \<in> C" and "\<sigma>2 \<in> C"
@@ -283,6 +310,7 @@ lemma meets_class_consistent:
 qed
 
 
+(* Preparation for double counting \<S> *)
 lemma \<S>_decomposition_C:
   shows "card \<S> = (\<Sum> C \<in> circular_permutations S. card {A \<in> \<F>. (\<forall> \<sigma> \<in> C. \<sigma> meets A)})"
 proof -
@@ -311,6 +339,7 @@ proof -
 qed
 
 
+(* Preparation for double counting \<S> *)
 lemma \<S>_decomposition_by_A:
   shows "card \<S> = (\<Sum> A \<in> \<F>. card {C \<in> circular_permutations S. (\<forall> \<sigma> \<in> C. \<sigma> meets A)})"
 proof -
