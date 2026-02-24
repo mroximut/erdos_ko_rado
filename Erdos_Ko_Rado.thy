@@ -63,6 +63,7 @@ proof -
     using n_pos by auto
 qed
 
+
 lemma meets_card:
   assumes "\<sigma> meets A" and "distinct \<sigma>" and "\<sigma> \<noteq> []"
   shows "\<exists>i. A = set (take (card A) (rotate i \<sigma>)) \<and> i < length \<sigma>"
@@ -156,6 +157,7 @@ proof -
 qed
 
 
+(* Trivial case of the Katona lemma below *)
 lemma katona_circle_claim_trivial:
   assumes "n \<le> 2"
   assumes "C \<in> circular_permutations S"
@@ -187,6 +189,8 @@ proof -
 qed
 
 
+(* The number of k-subsets met by any circular permutaion is at most k 
+   This is proved using the Arcs theory. *)
 lemma katona_circle_claim:
   assumes "C \<in> circular_permutations S"
   shows "card {A \<in> \<F>. (\<forall>\<sigma> \<in> C. \<sigma> meets A)} \<le> k"
