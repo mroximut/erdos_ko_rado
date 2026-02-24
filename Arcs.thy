@@ -2164,8 +2164,48 @@ next
           right_neighbors_def \<open>right_neighbor_arc \<in> right_neighbors\<close> left_neighbor_indices_def
           left_neighbors_def \<open>left_neighbor_arc \<in> left_neighbors\<close> \<open>element_arc \<noteq> other_arc\<close>
           left_arc_neighbors_def right_arc_neighbors_def using \<open>other_arc \<in> set arcs\<close> by fastforce
-      have "left_arc_neighbors \<union> right_arc_neighbors \<union> {element_arc}= set arcs" sorry
-      have "card left_neighbors = arc_size - 1" using neighbors[of element arc_index element_arc 
+     
+      have "left_arc_neighbors \<union> right_arc_neighbors \<union> {element_arc} = set arcs"
+      proof (rule set_eqI, rule iffI)
+        fix x
+        assume "x \<in> left_arc_neighbors \<union> right_arc_neighbors \<union> {element_arc}"
+        then show "x \<in> set arcs"
+          using left_arc_neighbors_def right_arc_neighbors_def \<open>element_arc \<in> set arcs\<close> by blast
+      next
+        fix x
+        assume "x \<in> set arcs"
+        show "x \<in> left_arc_neighbors \<union> right_arc_neighbors \<union> {element_arc}"
+        proof (cases "x = element_arc")
+          case True
+          then show ?thesis by simp
+        next
+          case False
+          have "intersecting_lists element_arc x"
+            using \<open>x \<in> set arcs\<close> \<open>element_arc \<in> set arcs\<close> intersecting_arcs 
+                  intersecting_arcs_def intersecting_n_arcs_def by blast
+          
+          have "x \<in> left_neighbors \<or> x \<in> right_neighbors"
+            using neighbors[of element arc_index element_arc right_neighbor_indices right_neighbors 
+                  right_neighbor_arc left_neighbor_indices left_neighbors left_neighbor_arc x]
+            using \<open>hd element_arc \<in> set cycle\<close>[folded element_def] 
+                  arc_index_def
+                  \<open>element_arc = generate_n_arc cycle arc_index arc_size\<close> 
+                  right_neighbor_indices_def
+                  right_neighbors_def \<open>right_neighbor_arc \<in> right_neighbors\<close> 
+                  left_neighbor_indices_def
+                  left_neighbors_def \<open>left_neighbor_arc \<in> left_neighbors\<close> 
+                  False
+                  \<open>x \<in> set arcs\<close>
+                  \<open>intersecting_lists element_arc x\<close>
+            by blast
+            
+          then show ?thesis
+            unfolding left_arc_neighbors_def right_arc_neighbors_def
+            using \<open>x \<in> set arcs\<close> by blast
+        qed
+      qed
+      
+      have "card left_neighbors = arc_size - 1" using neighbors[of element arc_index element_arc
             right_neighbor_indices right_neighbors right_neighbor_arc left_neighbor_indices 
             left_neighbors left_neighbor_arc other_arc] 
             \<open>hd element_arc \<in> set cycle\<close>[folded element_def] arc_index_def
@@ -2208,35 +2248,240 @@ next
             list.set_finite)
       define left_arc_neighbor_indices where "left_arc_neighbor_indices 
         = {index_of_element (hd x) cycle |x .  x \<in> left_arc_neighbors}"
-      have "card left_arc_neighbor_indices = card left_arc_neighbors" sorry
-      define right_pairs_of_left where "right_pairs_of_left 
+     
+      have "card left_arc_neighbor_indices = card left_arc_neighbors"
+      proof -
+        let ?f = "\<lambda>x. index_of_element (hd x) cycle"
+        
+        have "left_arc_neighbor_indices = ?f ` left_arc_neighbors"
+          unfolding left_arc_neighbor_indices_def by auto
+          
+        moreover have "inj_on ?f left_arc_neighbors"
+        proof (rule inj_onI)
+          fix x y
+          assume "x \<in> left_arc_neighbors" and "y \<in> left_arc_neighbors"
+          assume eq_idx: "?f x = ?f y"
+          
+          have "x \<in> set arcs" and "y \<in> set arcs"
+            using \<open>x \<in> left_arc_neighbors\<close> \<open>y \<in> left_arc_neighbors\<close> 
+            unfolding left_arc_neighbors_def by auto
+            
+          have "hd x \<in> set cycle"
+            using \<open>x \<in> set arcs\<close> generating_index_exists 
+            arc_generator_head generate_n_arc_def
+                hd_take list.set_sel(1) minimal_arc_size nth_mem 
+            by (metis arc_size empty_iff list.set(1)
+              set_rotate)
+          
+          have "hd y \<in> set cycle"
+            using \<open>y \<in> set arcs\<close> generating_index_exists 
+          by (metis \<open>hd x \<in> set cycle\<close> \<open>x \<in> set arcs\<close>
+              arc_generator_head eq_idx)
+                
+          have "hd x = hd y"
+            using eq_idx \<open>hd x \<in> set cycle\<close> \<open>hd y \<in> set cycle\<close> cycle_elements_distinct
+            by (metis  eq_idx \<open>x \<in> set arcs\<close> arc_generator_head \<open>y \<in> set arcs\<close>)
+            
+          show "x = y"
+            using \<open>x \<in> set arcs\<close> \<open>y \<in> set arcs\<close> \<open>hd x = hd y\<close> arc_heads_define_n_arcs 
+            by blast
+        qed
+        
+        ultimately show ?thesis
+          using card_image by blast
+      qed
+      
+      define right_pairs_of_left where "right_pairs_of_left
         = {(index + arc_size) mod (length cycle)| index. index \<in> left_arc_neighbor_indices}"
-      have "card right_pairs_of_left = card left_arc_neighbor_indices" 
-        using neighbors[of element arc_index element_arc right_neighbor_indices right_neighbors
-          right_neighbor_arc left_neighbor_indices left_neighbors left_neighbor_arc other_arc] 
-          \<open>hd element_arc \<in> set cycle\<close>[folded element_def] arc_index_def 
-          \<open>element_arc = generate_n_arc cycle arc_index arc_size\<close> right_neighbor_indices_def
-          right_neighbors_def \<open>right_neighbor_arc \<in> right_neighbors\<close> left_neighbor_indices_def
-          left_neighbors_def \<open>left_neighbor_arc \<in> left_neighbors\<close> \<open>element_arc \<noteq> other_arc\<close>
-        using right_pairs_of_left_def sorry
+      
+      have "card right_pairs_of_left = card left_arc_neighbor_indices"
+      proof -
+        let ?n = "length cycle"
+        let ?k = "arc_size"
+        let ?shift = "\<lambda>i. (i + ?k) mod ?n"
+        
+        have n_pos: "?n > 0" using cycle_size by auto
+
+        have "right_pairs_of_left = ?shift ` left_arc_neighbor_indices"
+          unfolding right_pairs_of_left_def by auto
+          
+        moreover have "inj_on ?shift left_arc_neighbor_indices"
+        proof (rule inj_onI)
+          fix x y
+          assume x_in: "x \<in> left_arc_neighbor_indices"
+          assume y_in: "y \<in> left_arc_neighbor_indices"
+          assume eq: "?shift x = ?shift y"
+          (* 1. Prove bounds: Indices in left_arc_neighbor_indices are valid cycle indices *)
+          have "x < ?n"
+            using x_in unfolding left_arc_neighbor_indices_def left_arc_neighbors_def mem_Collect_eq 
+            by (metis Int_iff arc_size elements_of_arc empty_iff
+              index_of_arc_elements_exist list.set(1)
+              list.set_sel(1))
+                
+          have "y < ?n"
+            using y_in unfolding left_arc_neighbor_indices_def left_arc_neighbors_def mem_Collect_eq
+            by (metis Int_iff arc_size elements_of_arc empty_iff
+              index_of_arc_elements_exist list.set(1)
+              list.set_sel(1))
+          
+         (* 2. Algebraic Cancellation by adding the inverse modulo n *)
+          (* We add (n - (k mod n)) to both sides to cancel k *)
+          let ?inv = "?n - (?k mod ?n)"
+          
+          have "(?shift x + ?inv) mod ?n = (?shift y + ?inv) mod ?n"
+            using eq by simp
+            
+          (* Expand ?shift definition *)
+          then have "((x + ?k) mod ?n + ?inv) mod ?n = ((y + ?k) mod ?n + ?inv) mod ?n"
+            by simp
+            
+          (* Use mod_add_left_eq to simplify ((a+b) mod n + c) mod n -> (a+b+c) mod n *)
+          then have "(x + ?k + ?inv) mod ?n = (y + ?k + ?inv) mod ?n"
+            by (metis mod_add_left_eq)
+            
+          (* Associativity to group k and its inverse *)
+          then have "(x + (?k + ?inv)) mod ?n = (y + (?k + ?inv)) mod ?n"
+            by (simp add: add.assoc)
+            
+          (* Simplify the inverse term: k + (n - k mod n) *)
+          have "?k + ?inv = ?k + ?n - (?k mod ?n)"
+            using n_pos mod_le_divisor by (simp add: le_imp_diff_is_add) 
+          also have "... = ?k - (?k mod ?n) + ?n"
+            by (simp add: add.commute)
+          (* k - (k mod n) is a multiple of n, let's call it q*n *)
+          also have "... = ?n * (?k div ?n) + ?n"
+            using add.commute minus_mod_eq_div_mult [symmetric]
+          by (simp add: minus_mod_eq_mult_div)
+          finally have inverse_prop: "(?k + ?inv) mod ?n = 0"
+            by (simp add: mod_add_right_eq)
+
+          (* Apply the simplification to our main equation *)
+          have "x mod ?n = (x + (?k + ?inv)) mod ?n"
+            using inverse_prop by (metis mod_add_right_eq add.commute add_0)
+          also have "... = (y + (?k + ?inv)) mod ?n"
+            using \<open>(x + (?k + ?inv)) mod ?n = (y + (?k + ?inv)) mod ?n\<close> by simp
+          also have "... = y mod ?n"
+             using inverse_prop by (metis mod_add_right_eq add.commute add_0)
+          finally have "x mod ?n = y mod ?n" .
+            
+          (* 3. Conclusion *)
+          then show "x = y"
+            using \<open>x < ?n\<close> \<open>y < ?n\<close> by simp
+        qed
+        
+        ultimately show ?thesis
+          using card_image by blast
+      qed
+
       define right_arc_pairs_of_left where "right_arc_pairs_of_left 
         = {generate_n_arc cycle index arc_size | index . index \<in> right_pairs_of_left}"
-      have "card right_pairs_of_left = card right_arc_pairs_of_left" using neighbors[of element 
-            arc_index element_arc right_neighbor_indices right_neighbors right_neighbor_arc 
-            left_neighbor_indices left_neighbors left_neighbor_arc other_arc]
-            \<open>hd element_arc \<in> set cycle\<close>[folded element_def] arc_index_def
-            \<open>element_arc = generate_n_arc cycle arc_index arc_size\<close> right_neighbor_indices_def
-            right_neighbors_def \<open>right_neighbor_arc \<in> right_neighbors\<close> left_neighbor_indices_def
+      
+      have "card right_pairs_of_left = card right_arc_pairs_of_left"
+      proof -
+        (* Define the generator function locally for clarity *)
+        let ?gen = "\<lambda>index. generate_n_arc cycle index arc_size"
+        
+        (* 1. Show the set of arcs is exactly the image of the set of indices *)
+        have "right_arc_pairs_of_left = ?gen ` right_pairs_of_left"
+          unfolding right_arc_pairs_of_left_def by auto
+          
+        (* 2. Show the generator is injective on this domain *)
+        moreover have "inj_on ?gen right_pairs_of_left"
+        proof (rule inj_onI)
+          fix x y
+          assume x_in: "x \<in> right_pairs_of_left"
+          assume y_in: "y \<in> right_pairs_of_left"
+          assume eq: "?gen x = ?gen y"
+          
+          (* Bounds Check: All elements in right_pairs_of_left are modulo length cycle *)
+          have n_pos: "length cycle > 0" using cycle_size by auto
+          
+          have "x < length cycle"
+            using x_in unfolding right_pairs_of_left_def using n_pos by auto
+            
+          have "y < length cycle"
+            using y_in unfolding right_pairs_of_left_def using n_pos by auto
+            
+          (* Apply the uniqueness lemma *)
+          show "x = y"
+            using eq \<open>x < length cycle\<close> \<open>y < length cycle\<close> unique_index_unique_arc
+            by blast
+        qed
+        
+        (* 3. Conclusion via card_image *)
+        ultimately show ?thesis
+          using card_image by force
+      qed
+
+      have subset_arcs: "right_arc_pairs_of_left \<subseteq> right_neighbors"
+      proof -
+        (* 1. Use the neighbors lemma to get the equality of index sets *)
+        have indices_eq: "right_neighbor_indices = {(index + arc_size) mod (length cycle) | index. index \<in> left_neighbor_indices}"
+           using neighbors[of element arc_index element_arc right_neighbor_indices right_neighbors 
+            right_neighbor_arc left_neighbor_indices left_neighbors left_neighbor_arc other_arc] 
+            \<open>hd element_arc \<in> set cycle\<close>[folded element_def] arc_index_def 
+            \<open>element_arc = generate_n_arc cycle arc_index arc_size\<close> right_neighbor_indices_def 
+            right_neighbors_def \<open>right_neighbor_arc \<in> right_neighbors\<close> left_neighbor_indices_def 
             left_neighbors_def \<open>left_neighbor_arc \<in> left_neighbors\<close> \<open>element_arc \<noteq> other_arc\<close>
-            right_pairs_of_left_def right_arc_pairs_of_left_def sorry
-      have subset_arcs: "right_arc_pairs_of_left \<subseteq> right_neighbors" using neighbors[of element 
-            arc_index element_arc right_neighbor_indices right_neighbors right_neighbor_arc 
-            left_neighbor_indices left_neighbors left_neighbor_arc other_arc] 
-          \<open>hd element_arc \<in> set cycle\<close>[folded element_def] arc_index_def
-          \<open>element_arc = generate_n_arc cycle arc_index arc_size\<close> right_neighbor_indices_def
-          right_neighbors_def \<open>right_neighbor_arc \<in> right_neighbors\<close> left_neighbor_indices_def
-          left_neighbors_def \<open>left_neighbor_arc \<in> left_neighbors\<close> \<open>element_arc \<noteq> other_arc\<close>
-          right_arc_pairs_of_left_def right_pairs_of_left_def sorry
+            using \<open>other_arc \<in> set arcs\<close> by argo
+
+        (* 2. Prove that left_arc_neighbor_indices is a subset of left_neighbor_indices *)
+        have "left_arc_neighbor_indices \<subseteq> left_neighbor_indices"
+        proof
+          fix x
+          assume "x \<in> left_arc_neighbor_indices"
+          (* Unpack definition: x is the index of the head of some arc in left_arc_neighbors *)
+          then obtain arc where "arc \<in> left_arc_neighbors" and x_def: "x = index_of_element (hd arc) cycle"
+            unfolding left_arc_neighbor_indices_def by blast
+            
+          have "arc \<in> left_neighbors" 
+            using \<open>arc \<in> left_arc_neighbors\<close> left_arc_neighbors_def by blast
+          
+          (* Since it's a left_neighbor, it is generated by some valid index l_idx *)
+          then obtain l_idx where "l_idx \<in> left_neighbor_indices" 
+            and arc_gen: "arc = generate_n_arc cycle l_idx arc_size"
+            unfolding left_neighbors_def by blast
+            
+          have "l_idx < length cycle"
+            using \<open>l_idx \<in> left_neighbor_indices\<close> unfolding left_neighbor_indices_def by blast
+          
+          (* The head of the generated arc is cycle ! l_idx *)
+          have "hd arc = cycle ! l_idx"
+          proof -
+            have "arc_size > 0" using minimal_arc_size by auto
+            have "length cycle > 0" using cycle_size by auto
+            
+            have "arc = take arc_size (rotate l_idx cycle)" 
+              using arc_gen generate_n_arc_def by simp
+            then have "hd arc = hd (take arc_size (rotate l_idx cycle))" by simp
+            also have "... = hd (rotate l_idx cycle)"
+              using \<open>arc_size > 0\<close> hd_take by blast
+            also have "... = cycle ! l_idx"
+              using \<open>l_idx < length cycle\<close> \<open>length cycle > 0\<close> hd_rotate_conv_nth by force
+            finally show ?thesis .
+          qed
+            
+          (* Therefore x must be l_idx *)
+          have "x = l_idx"
+            using x_def \<open>hd arc = cycle ! l_idx\<close> cycle_elements_distinct \<open>l_idx < length cycle\<close>
+          by (metis Int_iff \<open>arc \<in> left_arc_neighbors\<close> arc_gen
+              arc_generator_head contains_eq_elem index_limit
+              left_arc_neighbors_def linorder_not_le nat_neq_iff
+              not_in_list nth_mem unique_index_unique_arc)
+            
+          then show "x \<in> left_neighbor_indices"
+            using \<open>l_idx \<in> left_neighbor_indices\<close> by simp
+        qed
+        
+        (* 3. Apply the shift function to the subset relation *)
+        then have "right_pairs_of_left \<subseteq> right_neighbor_indices"
+          unfolding right_pairs_of_left_def indices_eq by blast
+          
+        (* 4. Map the indices to arcs to prove the final subset *)
+        then show ?thesis
+          unfolding right_arc_pairs_of_left_def right_neighbors_def by blast
+      qed
+
       have "\<forall>arc \<in> right_arc_pairs_of_left. arc \<notin> set arcs"
       proof
         fix arc
@@ -2248,9 +2493,206 @@ next
           = right_index \<and> left_index \<in> left_arc_neighbor_indices" using \<open>arc = generate_n_arc cycle 
           right_index arc_size \<and> right_index \<in> right_pairs_of_left\<close> right_pairs_of_left_def by blast
         define left_arc where "left_arc = generate_n_arc cycle left_index arc_size"
-        have "left_arc \<in> left_arc_neighbors" sorry
-        have "\<not> intersecting_lists left_arc arc" sorry
-        have "left_arc \<in> set arcs" using \<open>left_arc \<in> left_arc_neighbors\<close> left_arc_neighbors_def 
+       have "left_arc \<in> left_arc_neighbors"
+        proof -
+          (* 1. From the definition of left_arc_neighbor_indices, there exists an arc A *)
+          obtain A where "A \<in> left_arc_neighbors" 
+            and idx_eq: "left_index = index_of_element (hd A) cycle"
+            using \<open>(left_index + arc_size) mod length cycle = right_index \<and> left_index \<in> left_arc_neighbor_indices\<close>
+            left_arc_neighbor_indices_def by blast
+            
+          (* 2. Show that A implies it is in the main set of arcs *)
+          have "A \<in> set arcs" 
+            using \<open>A \<in> left_arc_neighbors\<close> left_arc_neighbors_def by blast
+            
+          (* 3. Show that A is uniquely generated by its head index *)
+          have "A = generate_n_arc cycle (index_of_element (hd A) cycle) arc_size"
+            using \<open>A \<in> set arcs\<close> arc_generator_head by simp
+            
+          (* 4. Substitute left_index *)
+          also have "... = generate_n_arc cycle left_index arc_size"
+            using idx_eq by simp
+            
+          (* 5. Match with definition of left_arc *)
+          also have "... = left_arc"
+            using left_arc_def by simp
+            
+          finally have "A = left_arc" .
+          
+          (* 6. Conclude *)
+          then show ?thesis
+            using \<open>A \<in> left_arc_neighbors\<close> by simp
+        qed
+        
+        have "\<not> intersecting_lists left_arc arc"
+        proof
+          assume "intersecting_lists left_arc arc"
+          
+          (* 1. Definitions and Setup *)
+          let ?n = "length cycle"
+          have n_pos: "?n > 0" using cycle_size by auto
+          
+          (* 2. Get the shared element x *)
+          then obtain x where "x \<in> set left_arc" and "x \<in> set arc"
+            unfolding intersecting_lists_def
+          by (metis \<open>intersecting_lists left_arc arc\<close> intersecting_lists_def)
+            
+          (* 3. Get the local index 'i' in left_arc *)
+          have len_left: "length left_arc = arc_size" 
+            using left_arc_def maximum_arc_size
+          by (metis IntE \<open>left_arc \<in> left_arc_neighbors\<close>
+              fixed_arc_size left_arc_neighbors_def
+              n_arc_of_cycle_def)
+          then obtain i where "i < arc_size" and x_left: "x = left_arc ! i"
+            using \<open>x \<in> set left_arc\<close> in_set_conv_nth by metis
+
+          (* 4. Get the local index 'j' in arc *)
+          have len_arc: "length arc = arc_size"
+            using \<open>arc = generate_n_arc cycle right_index arc_size \<and> right_index \<in> right_pairs_of_left\<close> 
+                  generate_n_arc_def maximum_arc_size
+          by (metis left_arc_def len_left length_rotate
+              length_take)
+          then obtain j where "j < arc_size" and x_right: "x = arc ! j"
+            using \<open>x \<in> set arc\<close> in_set_conv_nth by metis
+
+          (* 5. Map local indices to global cycle indices *)
+          (* For left_arc *)
+          have "left_arc = take arc_size (rotate left_index cycle)"
+            using left_arc_def generate_n_arc_def by simp
+          then have "left_arc ! i = rotate left_index cycle ! i"
+            using \<open>i < arc_size\<close> len_left by simp
+          also have "... = cycle ! ((left_index + i) mod ?n)"
+            using nth_rotate n_pos \<open>i < arc_size\<close> maximum_arc_size
+          by (metis add_lessD1 add_less_cancel_left
+              canonically_ordered_monoid_add_class.lessE mult_2
+              nat_less_le)
+          finally have x_val_left: "x = cycle ! ((left_index + i) mod ?n)"
+            using x_left by simp
+
+          (* For arc (right_arc) *)
+          have "arc = take arc_size (rotate right_index cycle)"
+            using \<open>arc = generate_n_arc cycle right_index arc_size \<and> right_index \<in> right_pairs_of_left\<close> generate_n_arc_def by simp
+          then have "arc ! j = rotate right_index cycle ! j"
+            using \<open>j < arc_size\<close> len_arc by simp
+          also have "... = cycle ! ((right_index + j) mod ?n)"
+            using nth_rotate n_pos \<open>j < arc_size\<close> maximum_arc_size
+          by (metis add_lessD1 add_less_cancel_left
+              canonically_ordered_monoid_add_class.lessE mult_2
+              nat_less_le)
+          finally have x_val_right: "x = cycle ! ((right_index + j) mod ?n)"
+            using x_right by simp
+
+          (* 6. Equate the indices *)
+          have "(left_index + i) mod ?n = (right_index + j) mod ?n"
+            using x_val_left x_val_right cycle_elements_distinct nth_eq_iff_index_eq n_pos
+            by force
+
+          (* 7. Substitute right_index = left_index + arc_size *)
+          have r_idx_def: "right_index = (left_index + arc_size) mod ?n"
+             using \<open>(left_index + arc_size) mod length cycle = right_index \<and> left_index \<in> left_arc_neighbor_indices\<close> by simp
+             
+          have "(right_index + j) mod ?n = ((left_index + arc_size) + j) mod ?n"
+            using r_idx_def mod_add_left_eq by simp
+          also have "... = (left_index + (arc_size + j)) mod ?n"
+            by (simp add: add.assoc)
+          finally have eq_substituted: "(left_index + i) mod ?n = (left_index + (arc_size + j)) mod ?n"
+            using \<open>(left_index + i) mod ?n = (right_index + j) mod ?n\<close> by simp
+
+          (* 8. Algebraic Cancellation (Robust Manual Step) *)
+          (* We want to cancel 'left_index'. We add (n - left_index mod n) to both sides modulo n *)
+          let ?inv = "?n - (left_index mod ?n)"
+          
+          have "((left_index + i) mod ?n + ?inv) mod ?n = ((left_index + (arc_size + j)) mod ?n + ?inv) mod ?n"
+            using eq_substituted by simp
+            
+        (* Simplify LHS: (L + i + inv) % n -> i % n *)
+          have lhs_simp: "((left_index + i) mod ?n + ?inv) mod ?n = i mod ?n"
+          proof -
+            (* 1. Flatten the modulo: ((a+b)%n + c)%n = (a+b+c)%n *)
+            have "((left_index + i) mod ?n + ?inv) mod ?n = (left_index + i + ?inv) mod ?n"
+              using mod_add_left_eq by fast
+            also have "... = (left_index + ?inv + i) mod ?n"
+              by (simp add: add.commute add.assoc)
+            
+            (* 2. Focus on eliminating left_index + ?inv *)
+            have "(left_index + ?inv) mod ?n = 0"
+            proof -
+               have "left_index mod ?n \<le> left_index" 
+                 by simp 
+               have "left_index + ?inv = left_index + ?n - (left_index mod ?n)"
+                 using mod_le_divisor n_pos by (simp add: le_imp_diff_is_add)
+               also have "... = (left_index - (left_index mod ?n)) + ?n"
+                 using \<open>left_index mod ?n \<le> left_index\<close> by auto
+               also have "... = ?n * (left_index div ?n) + ?n"
+                 by (simp add: minus_mod_eq_mult_div)
+               finally have "left_index + ?inv = ?n * (left_index div ?n + 1)"
+                 by (simp add: algebra_simps)
+               then show ?thesis by simp
+            qed
+
+            (* 3. Substitute back *)
+            then have "(left_index + ?inv + i) mod ?n = (0 + i) mod ?n"
+              using mod_add_left_eq by metis
+            show ?thesis
+              using
+              \<open>(left_index + (length cycle - left_index mod length cycle) + i) mod length cycle = (0 + i) mod length cycle\<close>
+            by presburger
+          qed
+
+          (* Simplify RHS: (L + (k+j) + inv) % n -> (k+j) % n *)
+          (* Exact same logic, just replacing 'i' with '(arc_size + j)' *)
+          have rhs_simp: "((left_index + (arc_size + j)) mod ?n + ?inv) mod ?n = (arc_size + j) mod ?n"
+          proof -
+            have "((left_index + (arc_size + j)) mod ?n + ?inv) mod ?n = (left_index + (arc_size + j) + ?inv) mod ?n"
+              using mod_add_left_eq by fast
+            also have "... = (left_index + ?inv + (arc_size + j)) mod ?n"
+              using add.commute add.assoc by presburger
+            
+            have "(left_index + ?inv) mod ?n = 0"
+            proof -
+               have "left_index mod ?n \<le> left_index" 
+                 by simp 
+               have "left_index + ?inv = left_index + ?n - (left_index mod ?n)"
+                 using mod_le_divisor n_pos by (simp add: le_imp_diff_is_add)
+               also have "... = (left_index - (left_index mod ?n)) + ?n"
+                 using \<open>left_index mod ?n \<le> left_index\<close> by simp
+               also have "... = ?n * (left_index div ?n) + ?n"
+               by (simp add: minus_mod_eq_mult_div)
+               finally have "left_index + ?inv = ?n * (left_index div ?n + 1)"
+                 by (simp add: algebra_simps)
+               then show ?thesis by simp
+            qed
+
+            then have "(left_index + ?inv + (arc_size + j)) mod ?n = (0 + (arc_size + j)) mod ?n"
+              using mod_add_left_eq by metis
+            show ?thesis
+            using
+              \<open>(left_index + (length cycle - left_index mod length cycle) + (arc_size + j)) mod length cycle = (0 + (arc_size + j)) mod length cycle\<close>
+            by presburger
+          qed
+             
+          have i_eq_shift: "i mod ?n = (arc_size + j) mod ?n"
+            using lhs_simp rhs_simp \<open>((left_index + i) mod ?n + ?inv) mod ?n = ((left_index + (arc_size + j)) mod ?n + ?inv) mod ?n\<close> by simp
+            
+          (* 9. Bounds Check (Removing the modulo) *)
+          have "i < ?n" 
+            using \<open>i < arc_size\<close> maximum_arc_size minimal_arc_size by linarith
+          then have i_pure: "i mod ?n = i" by simp
+          
+          have "arc_size + j < 2 * arc_size" using \<open>j < arc_size\<close> by simp
+          also have "... \<le> ?n" using maximum_arc_size by simp
+          finally have "arc_size + j < ?n" .
+          then have j_pure: "(arc_size + j) mod ?n = arc_size + j" by simp
+          
+          (* 10. Final Contradiction *)
+          have "i = arc_size + j"
+            using i_eq_shift i_pure j_pure by simp
+            
+          show False
+            using \<open>i = arc_size + j\<close> \<open>i < arc_size\<close> by simp
+        qed
+
+        have "left_arc \<in> set arcs" using \<open>left_arc \<in> left_arc_neighbors\<close> left_arc_neighbors_def
           by fastforce
         show "arc \<notin> set arcs" by (metis \<open>\<not> intersecting_lists left_arc arc\<close> intersecting_arcs_def 
               intersecting_n_arcs_def intersecting_arcs \<open>left_arc \<in> set arcs\<close>)
@@ -2278,7 +2720,7 @@ next
           minimal_arc_size by linarith
   qed
 qed
-
+qed
 
 end
 

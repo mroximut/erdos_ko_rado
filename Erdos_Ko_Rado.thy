@@ -239,11 +239,12 @@ next
       using k_pos by simp
     show "2 * k \<le> length \<sigma>" 
       using assms \<sigma> \<sigma>_props(3) n_bound by simp
-    show "intersecting_n_arcs ?Arcs \<sigma> k" 
-      unfolding intersecting_n_arcs_def intersecting_arcs_def
-      using \<sigma> set_arcs intersecting_F all_arcs
-      by (smt (verit, del_insts) `\<sigma> \<noteq> []` `distinct \<sigma>` arc_list_props(1)
-        image_iff intersecting_def mem_Collect_eq n_arc_of_cycle_def)
+    have "\<forall>arc \<in> arc_list \<sigma> ` {A \<in> \<F>. \<forall>\<sigma>\<in>C. \<sigma> meets A}. arc_of_cycle arc \<sigma> \<and> length arc = k"
+      using assms all_arcs n_arc_of_cycle_def set_arcs by blast
+    then show "intersecting_n_arcs ?Arcs \<sigma> k" 
+      unfolding intersecting_n_arcs_def intersecting_arcs_def n_arc_of_cycle_def
+      using \<sigma> set_arcs intersecting_F all_arcs intersecting_lists_eq `\<sigma> \<noteq> []` `distinct \<sigma>` 
+            arc_list_props(1) image_iff intersecting_def mem_Collect_eq by (smt (verit, best))
     show "distinct ?Arcs" 
       using list_of_props(2) by (metis (lifting) `finite ?MetSets` finite_imageI)
   qed
@@ -641,7 +642,8 @@ proof -
   also have "... = fact (n - 1) div (fact (k - 1) * fact ((n - 1) - (k - 1)))"
     using k_pos by fastforce
   also have "... = (n - 1) choose (k - 1)" 
-    using binomial_altdef_nat n_bound by simp
+    using n_bound binomial_fact'
+    by (metis (no_types, lifting) diff_le_mono le_add1 le_trans mult_2)
   finally show ?thesis .
 qed
 end

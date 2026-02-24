@@ -103,11 +103,11 @@ next
   then show "contains_element item sequence" using not_contains_impl_not_elem by fastforce
 qed
 
-
+(*
 lemma shifted_index:
   fixes list "'a list"
   fixes element "'a" 
-
+*)
 
 lemma first_index:
   fixes list ::"'a list"
