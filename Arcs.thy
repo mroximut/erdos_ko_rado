@@ -2051,24 +2051,22 @@ proof cases
       assume "\<not> (length arcs \<le> arc_size)"
       then have "length arcs > arc_size" by simp
       then have "length arcs > 1" by (metis \<open>arc_size < length arcs\<close> \<open>arc_size = 1\<close>)
-      
       have "card (set arcs) = length arcs" using distinct_arcs distinct_card by auto
       hence "card (set arcs) > 1" using \<open>length arcs > 1\<close> by simp
-      
       then obtain arc1 arc2 where "arc1 \<in> set arcs" and "arc2 \<in> set arcs" and "arc1 \<noteq> arc2"
         using card_le_Suc0_iff_eq linorder_not_less
       by (metis One_nat_def list.set_finite)
-        
       have "length arc1 = 1" and "length arc2 = 1"
-        using \<open>arc1 \<in> set arcs\<close> \<open>arc2 \<in> set arcs\<close> \<open>arc_size = 1\<close> intersecting_arcs intersecting_n_arcs_def by auto
-        
+        using \<open>arc1 \<in> set arcs\<close> \<open>arc2 \<in> set arcs\<close> \<open>arc_size = 1\<close> intersecting_arcs 
+          intersecting_n_arcs_def by auto
       have "intersecting_lists arc1 arc2"
-        using \<open>arc1 \<in> set arcs\<close> \<open>arc2 \<in> set arcs\<close> intersecting_arcs intersecting_arcs_def intersecting_n_arcs_def by blast
-        
-      then obtain e where "e \<in> set arc1" and "e \<in> set arc2" unfolding intersecting_lists_def by auto
+        using \<open>arc1 \<in> set arcs\<close> \<open>arc2 \<in> set arcs\<close> intersecting_arcs intersecting_arcs_def 
+          intersecting_n_arcs_def by blast
+      then obtain e where "e \<in> set arc1" and "e \<in> set arc2" unfolding intersecting_lists_def 
+        by auto
       hence "arc1 = [e]" and "arc2 = [e]"
-        using \<open>length arc1 = 1\<close> \<open>length arc2 = 1\<close> length_0_conv length_Suc_conv set_ConsD by (metis One_nat_def hd_in_set in_set_replicate)+
-        
+        using \<open>length arc1 = 1\<close> \<open>length arc2 = 1\<close> length_0_conv length_Suc_conv set_ConsD 
+          by (metis One_nat_def hd_in_set in_set_replicate)+
       thus False using \<open>arc1 \<noteq> arc2\<close> by simp
   qed
 next
@@ -2091,8 +2089,8 @@ next
       then have "length arcs \<noteq> 1" by simp
       then have "length arcs > 1" using \<open>length arcs \<noteq> 0\<close> nat_neq_iff by force
       then obtain element_arc other_arc where "element_arc \<in> set arcs \<and> other_arc \<in> set arcs 
-        \<and> element_arc \<noteq> other_arc" 
-        by (metis \<open>0 < length arcs\<close> distinct_arcs distinct_conv_nth less_not_refl nth_mem zero_less_one)
+        \<and> element_arc \<noteq> other_arc" by (metis \<open>0 < length arcs\<close> distinct_arcs distinct_conv_nth 
+        less_not_refl nth_mem zero_less_one)
       define element where "element = hd element_arc"
       have "element_arc \<in> set arcs" 
         by (metis \<open>element_arc \<in> set arcs \<and> other_arc \<in> set arcs \<and> element_arc \<noteq> other_arc\<close>)
@@ -2113,126 +2111,171 @@ next
       define right_neighbors where "right_neighbors = {generate_n_arc cycle index arc_size | 
         index. index \<in> right_neighbor_indices}"
       have "right_neighbors \<noteq> {}" using \<open>right_neighbor_indices \<noteq> {}\<close> right_neighbors_def by blast
-    then obtain right_neighbor_arc where "right_neighbor_arc \<in> right_neighbors" by blast
-    define left_neighbor_indices where "left_neighbor_indices 
-      = {index :: nat. index < length cycle \<and> (\<exists>shift. 0 < shift \<and> shift < arc_size 
-      \<and> cycle ! ((index + shift) mod (length cycle)) = hd element_arc)}"
-     have "left_neighbor_indices \<noteq> {}"
-     proof -
-      define l_shift where "l_shift = (1::nat)"
-      have "0 < l_shift" and "l_shift < arc_size" using \<open>arc_size > 1\<close> l_shift_def by auto
-      define l_idx where "l_idx = (arc_index + length cycle - l_shift) mod length cycle"
-      have hd_arc_idx: "hd element_arc = cycle ! arc_index"
-        using  \<open>element_arc = generate_n_arc cycle arc_index arc_size\<close> arc_generator_head 
-          arc_index_def element_def by (metis \<open>hd element_arc \<in> set cycle\<close> index_correct 
+      then obtain right_neighbor_arc where "right_neighbor_arc \<in> right_neighbors" by blast
+      define left_neighbor_indices where "left_neighbor_indices 
+        = {index :: nat. index < length cycle \<and> (\<exists>shift. 0 < shift \<and> shift < arc_size 
+        \<and> cycle ! ((index + shift) mod (length cycle)) = hd element_arc)}"
+      have "left_neighbor_indices \<noteq> {}"
+      proof -
+        define l_shift where "l_shift = (1::nat)"
+        have "0 < l_shift" and "l_shift < arc_size" using \<open>arc_size > 1\<close> l_shift_def by auto
+        define l_idx where "l_idx = (arc_index + length cycle - l_shift) mod length cycle"
+        have hd_arc_idx: "hd element_arc = cycle ! arc_index"
+          using  \<open>element_arc = generate_n_arc cycle arc_index arc_size\<close> arc_generator_head 
+            arc_index_def element_def by (metis \<open>hd element_arc \<in> set cycle\<close> index_correct 
             not_contains_impl_not_elem)
-      have "(l_idx + l_shift) mod length cycle = arc_index"
-        unfolding l_idx_def using \<open>arc_size > 1\<close> maximum_arc_size l_shift_def 
-        using le_add_diff_inverse mod_add_left_eq mod_add_right_eq nat_less_le
-        by (smt (verit, best) \<open>element_arc \<in> set arcs\<close> arc_context.fixed_arc_size 
+        have "(l_idx + l_shift) mod length cycle = arc_index"
+          unfolding l_idx_def using \<open>arc_size > 1\<close> maximum_arc_size l_shift_def 
+          using le_add_diff_inverse mod_add_left_eq mod_add_right_eq nat_less_le
+          by (smt (verit, best) \<open>element_arc \<in> set arcs\<close> arc_context.fixed_arc_size 
             arc_context.index_of_arc_elements_exist arc_context_axioms arc_index_def arc_size 
             element_def le_add2 le_add_diff_inverse2 list.set_sel(1) list.size(3) mod_add_self2 
             mod_less mult_2 n_arc_of_cycle_def order_less_le_trans)
-      have "l_idx < length cycle" unfolding l_idx_def using cycle_size
-      by (meson \<open>hd element_arc \<in> set cycle\<close> length_pos_if_in_set mod_less_divisor)
-      have "l_idx \<in> left_neighbor_indices"
-        unfolding left_neighbor_indices_def 
-        using \<open>l_idx < length cycle\<close> \<open>0 < l_shift\<close> \<open>l_shift < arc_size\<close> hd_arc_idx 
-          \<open>(l_idx + l_shift) mod length cycle = arc_index\<close> by auto
-      then show ?thesis by blast
-    qed
-    define left_neighbors where "left_neighbors = {generate_n_arc cycle index arc_size | index. index \<in> left_neighbor_indices}"
-    have "left_neighbors \<noteq> {}" using \<open>left_neighbor_indices \<noteq> {}\<close> left_neighbors_def by blast
-    then obtain left_neighbor_arc where "left_neighbor_arc \<in> left_neighbors" by blast
-    have "left_neighbors \<inter> right_neighbors = {}"
-      using neighbors[of element arc_index element_arc right_neighbor_indices right_neighbors
+        have "l_idx < length cycle" unfolding l_idx_def using cycle_size
+          by (meson \<open>hd element_arc \<in> set cycle\<close> length_pos_if_in_set mod_less_divisor)
+        have "l_idx \<in> left_neighbor_indices"
+          unfolding left_neighbor_indices_def 
+          using \<open>l_idx < length cycle\<close> \<open>0 < l_shift\<close> \<open>l_shift < arc_size\<close> hd_arc_idx 
+            \<open>(l_idx + l_shift) mod length cycle = arc_index\<close> by auto
+        then show ?thesis by blast
+      qed
+      define left_neighbors where "left_neighbors = {generate_n_arc cycle index arc_size 
+        | index. index \<in> left_neighbor_indices}"
+      have "left_neighbors \<noteq> {}" using \<open>left_neighbor_indices \<noteq> {}\<close> left_neighbors_def by blast
+      then obtain left_neighbor_arc where "left_neighbor_arc \<in> left_neighbors" by blast
+      have "left_neighbors \<inter> right_neighbors = {}"
+        using neighbors[of element arc_index element_arc right_neighbor_indices right_neighbors
+            right_neighbor_arc left_neighbor_indices left_neighbors left_neighbor_arc other_arc]
+            \<open>hd element_arc \<in> set cycle\<close>[folded element_def] arc_index_def
+            \<open>element_arc = generate_n_arc cycle arc_index arc_size\<close> right_neighbor_indices_def
+            right_neighbors_def \<open>right_neighbor_arc \<in> right_neighbors\<close> left_neighbor_indices_def
+            left_neighbors_def \<open>left_neighbor_arc \<in> left_neighbors\<close> \<open>element_arc \<noteq> other_arc\<close> 
+            using \<open>other_arc \<in> set arcs\<close> by fastforce
+      define left_arc_neighbors where  "left_arc_neighbors = set arcs \<inter> left_neighbors"
+      define right_arc_neighbors where "right_arc_neighbors = set arcs \<inter> right_neighbors"
+      have "left_arc_neighbors \<inter> right_arc_neighbors = {}" 
+        using \<open>left_neighbors \<inter> right_neighbors = {}\<close> left_arc_neighbors_def right_arc_neighbors_def 
+        by blast
+      have "element_arc \<notin> left_arc_neighbors \<and> element_arc \<notin> right_arc_neighbors" 
+        using neighbors[of element arc_index element_arc right_neighbor_indices right_neighbors
           right_neighbor_arc left_neighbor_indices left_neighbors left_neighbor_arc other_arc]
-        \<open>hd element_arc \<in> set cycle\<close>[folded element_def] arc_index_def
-        \<open>element_arc = generate_n_arc cycle arc_index arc_size\<close> right_neighbor_indices_def
-        right_neighbors_def \<open>right_neighbor_arc \<in> right_neighbors\<close> left_neighbor_indices_def
-        left_neighbors_def \<open>left_neighbor_arc \<in> left_neighbors\<close> \<open>element_arc \<noteq> other_arc\<close> using \<open>other_arc \<in> set arcs\<close> by fastforce
-    define left_arc_neighbors where  "left_arc_neighbors = set arcs \<inter> left_neighbors"
-    define right_arc_neighbors where "right_arc_neighbors = set arcs \<inter> right_neighbors"
-    have "left_arc_neighbors \<inter> right_arc_neighbors = {}" using \<open>left_neighbors \<inter> right_neighbors = {}\<close> left_arc_neighbors_def right_arc_neighbors_def by blast
-    have "element_arc \<notin> left_arc_neighbors \<and> element_arc \<notin> right_arc_neighbors" using neighbors[of element arc_index element_arc right_neighbor_indices right_neighbors
-          right_neighbor_arc left_neighbor_indices left_neighbors left_neighbor_arc other_arc]
-        \<open>hd element_arc \<in> set cycle\<close>[folded element_def] arc_index_def
-        \<open>element_arc = generate_n_arc cycle arc_index arc_size\<close> right_neighbor_indices_def
-        right_neighbors_def \<open>right_neighbor_arc \<in> right_neighbors\<close> left_neighbor_indices_def
-        left_neighbors_def \<open>left_neighbor_arc \<in> left_neighbors\<close> \<open>element_arc \<noteq> other_arc\<close>
-        left_arc_neighbors_def right_arc_neighbors_def using \<open>other_arc \<in> set arcs\<close> by fastforce
-    have "left_arc_neighbors \<union> right_arc_neighbors \<union> {element_arc}= set arcs" sorry
-    have "card left_neighbors = arc_size - 1" using neighbors[of element arc_index element_arc right_neighbor_indices right_neighbors
-          right_neighbor_arc left_neighbor_indices left_neighbors left_neighbor_arc other_arc]
-        \<open>hd element_arc \<in> set cycle\<close>[folded element_def] arc_index_def
-        \<open>element_arc = generate_n_arc cycle arc_index arc_size\<close> right_neighbor_indices_def
-        right_neighbors_def \<open>right_neighbor_arc \<in> right_neighbors\<close> left_neighbor_indices_def
-        left_neighbors_def \<open>left_neighbor_arc \<in> left_neighbors\<close> \<open>element_arc \<noteq> other_arc\<close> using \<open>other_arc \<in> set arcs\<close> by argo
-    then have "card left_arc_neighbors \<le> arc_size - 1" by (metis \<open>arc_size \<noteq> 1\<close> card.infinite card_mono diff_is_0_eq diffs0_imp_equal inf_le2 left_arc_neighbors_def minimal_arc_size)
-    have "length arcs = card left_arc_neighbors + card right_arc_neighbors + 1"
-      by (metis (no_types, lifting) Int_insert_right_if0 Int_left_commute One_nat_def UnE Un_Int_eq(2) \<open>element_arc \<notin> left_arc_neighbors \<and> element_arc \<notin> right_arc_neighbors\<close>
-        \<open>left_arc_neighbors \<inter> right_arc_neighbors = {}\<close> \<open>left_arc_neighbors \<union> right_arc_neighbors \<union> {element_arc} = set arcs\<close> bij_betw_same_card card.empty card_Un_disjoint card_insert_disjoint
-        equals0D finite_Un finite_insert index_set_size indices_are_representative list.set_finite)
-    have "card right_neighbors = arc_size - 1" using neighbors[of element arc_index element_arc right_neighbor_indices right_neighbors
-          right_neighbor_arc left_neighbor_indices left_neighbors left_neighbor_arc other_arc]
-        \<open>hd element_arc \<in> set cycle\<close>[folded element_def] arc_index_def
-        \<open>element_arc = generate_n_arc cycle arc_index arc_size\<close> right_neighbor_indices_def
-        right_neighbors_def \<open>right_neighbor_arc \<in> right_neighbors\<close> left_neighbor_indices_def
-        left_neighbors_def \<open>left_neighbor_arc \<in> left_neighbors\<close> \<open>element_arc \<noteq> other_arc\<close> 
-    by (metis arc_index_def \<open>right_neighbor_arc \<in> right_neighbors\<close> \<open>element_arc = generate_n_arc cycle arc_index arc_size\<close> \<open>left_neighbor_arc \<in> left_neighbors\<close> \<open>element_arc \<noteq> other_arc\<close> \<open>element \<in> set cycle\<close> \<open>other_arc \<in> set arcs\<close>)
-    then have "card right_arc_neighbors \<le> arc_size - 1"
-      by (metis \<open>1 < arc_size\<close> card.infinite card_mono diff_is_0_eq inf_commute inf_sup_ord(1) linorder_not_less right_arc_neighbors_def)
-    have "length arcs = card left_arc_neighbors + card right_arc_neighbors + 1"
-      by (metis (no_types, lifting) Int_insert_right_if0 Int_left_commute One_nat_def UnE Un_Int_eq(2) \<open>element_arc \<notin> left_arc_neighbors \<and> element_arc \<notin> right_arc_neighbors\<close>
-        \<open>left_arc_neighbors \<inter> right_arc_neighbors = {}\<close> \<open>left_arc_neighbors \<union> right_arc_neighbors \<union> {element_arc} = set arcs\<close> bij_betw_same_card card.empty card_Un_disjoint card_insert_disjoint
-        equals0D finite_Un finite_insert index_set_size indices_are_representative list.set_finite)
-    define left_arc_neighbor_indices where "left_arc_neighbor_indices = {index_of_element (hd x) cycle |x .  x \<in> left_arc_neighbors}"
-    have "card left_arc_neighbor_indices = card left_arc_neighbors" sorry
-    define right_pairs_of_left where "right_pairs_of_left = {(index + arc_size) mod (length cycle)| index. index \<in> left_arc_neighbor_indices}"
-    have "card right_pairs_of_left = card left_arc_neighbor_indices" using neighbors[of element arc_index element_arc right_neighbor_indices right_neighbors
-          right_neighbor_arc left_neighbor_indices left_neighbors left_neighbor_arc other_arc]
-        \<open>hd element_arc \<in> set cycle\<close>[folded element_def] arc_index_def
-        \<open>element_arc = generate_n_arc cycle arc_index arc_size\<close> right_neighbor_indices_def
-        right_neighbors_def \<open>right_neighbor_arc \<in> right_neighbors\<close> left_neighbor_indices_def
-        left_neighbors_def \<open>left_neighbor_arc \<in> left_neighbors\<close> \<open>element_arc \<noteq> other_arc\<close>
-      using right_pairs_of_left_def sorry
-    define right_arc_pairs_of_left where "right_arc_pairs_of_left = {generate_n_arc cycle index arc_size | index . index \<in> right_pairs_of_left}"
-    have "card right_pairs_of_left = card right_arc_pairs_of_left" using neighbors[of element arc_index element_arc right_neighbor_indices right_neighbors
-          right_neighbor_arc left_neighbor_indices left_neighbors left_neighbor_arc other_arc]
-        \<open>hd element_arc \<in> set cycle\<close>[folded element_def] arc_index_def
-        \<open>element_arc = generate_n_arc cycle arc_index arc_size\<close> right_neighbor_indices_def
-        right_neighbors_def \<open>right_neighbor_arc \<in> right_neighbors\<close> left_neighbor_indices_def
-        left_neighbors_def \<open>left_neighbor_arc \<in> left_neighbors\<close> \<open>element_arc \<noteq> other_arc\<close>
-        right_pairs_of_left_def right_arc_pairs_of_left_def sorry
-    have subset_arcs: "right_arc_pairs_of_left \<subseteq> right_neighbors" using neighbors[of element arc_index element_arc right_neighbor_indices right_neighbors
-          right_neighbor_arc left_neighbor_indices left_neighbors left_neighbor_arc other_arc]
-        \<open>hd element_arc \<in> set cycle\<close>[folded element_def] arc_index_def
-        \<open>element_arc = generate_n_arc cycle arc_index arc_size\<close> right_neighbor_indices_def
-        right_neighbors_def \<open>right_neighbor_arc \<in> right_neighbors\<close> left_neighbor_indices_def
-        left_neighbors_def \<open>left_neighbor_arc \<in> left_neighbors\<close> \<open>element_arc \<noteq> other_arc\<close>
-        right_arc_pairs_of_left_def right_pairs_of_left_def sorry
-    have "\<forall>arc \<in> right_arc_pairs_of_left. arc \<notin> set arcs"
-    proof
-      fix arc
-      assume "arc \<in> right_arc_pairs_of_left"
-      obtain right_index where "arc = generate_n_arc cycle right_index arc_size \<and> right_index \<in> right_pairs_of_left" using \<open>arc \<in> right_arc_pairs_of_left\<close> right_arc_pairs_of_left_def by auto
-      obtain left_index where "(left_index + arc_size) mod (length cycle) = right_index \<and> left_index \<in> left_arc_neighbor_indices" using \<open>arc = generate_n_arc cycle right_index arc_size \<and> right_index \<in> right_pairs_of_left\<close> right_pairs_of_left_def by blast
-      define left_arc where "left_arc = generate_n_arc cycle left_index arc_size"
-      have "left_arc \<in> left_arc_neighbors" sorry
-      have "\<not> intersecting_lists left_arc arc" sorry
-      have "left_arc \<in> set arcs" using \<open>left_arc \<in> left_arc_neighbors\<close> left_arc_neighbors_def by fastforce
-      show "arc \<notin> set arcs" by (metis \<open>\<not> intersecting_lists left_arc arc\<close> intersecting_arcs_def intersecting_n_arcs_def intersecting_arcs \<open>left_arc \<in> set arcs\<close>)
-    qed
-    then have "right_arc_neighbors \<subseteq> right_neighbors - right_arc_pairs_of_left" using right_arc_neighbors_def by blast
-    then have "card right_arc_neighbors \<le> card (right_neighbors - right_arc_pairs_of_left)" by (metis \<open>card right_arc_neighbors \<le> arc_size - 1\<close> \<open>card right_neighbors = arc_size - 1\<close> card.infinite card_mono finite_Diff)
-    then have "... = card right_neighbors - card right_arc_pairs_of_left"
-      by (metis \<open>1 < arc_size\<close> \<open>card right_neighbors = arc_size - 1\<close> card_Diff_subset card_gt_0_iff finite_subset subset_arcs zero_less_diff)
-    then have "... = card right_neighbors - card left_arc_neighbors" using \<open>card left_arc_neighbor_indices = card left_arc_neighbors\<close> \<open>card right_pairs_of_left = card left_arc_neighbor_indices\<close> \<open>card right_pairs_of_left = card right_arc_pairs_of_left\<close> by presburger
-    have "card left_arc_neighbors + card right_arc_neighbors \<le> arc_size - 1"
-      using \<open>card (right_neighbors - right_arc_pairs_of_left) = card right_neighbors - card right_arc_pairs_of_left\<close> \<open>card left_arc_neighbors \<le> arc_size - 1\<close>
-      \<open>card right_arc_neighbors \<le> card (right_neighbors - right_arc_pairs_of_left)\<close> \<open>card right_neighbors - card right_arc_pairs_of_left = card right_neighbors - card left_arc_neighbors\<close>
-      \<open>card right_neighbors = arc_size - 1\<close> by linarith
-    then show "length arcs \<le> arc_size" using \<open>length arcs = card left_arc_neighbors + card right_arc_neighbors + 1\<close> minimal_arc_size by linarith
+          \<open>hd element_arc \<in> set cycle\<close>[folded element_def] arc_index_def
+          \<open>element_arc = generate_n_arc cycle arc_index arc_size\<close> right_neighbor_indices_def
+          right_neighbors_def \<open>right_neighbor_arc \<in> right_neighbors\<close> left_neighbor_indices_def
+          left_neighbors_def \<open>left_neighbor_arc \<in> left_neighbors\<close> \<open>element_arc \<noteq> other_arc\<close>
+          left_arc_neighbors_def right_arc_neighbors_def using \<open>other_arc \<in> set arcs\<close> by fastforce
+      have "left_arc_neighbors \<union> right_arc_neighbors \<union> {element_arc}= set arcs" sorry
+      have "card left_neighbors = arc_size - 1" using neighbors[of element arc_index element_arc 
+            right_neighbor_indices right_neighbors right_neighbor_arc left_neighbor_indices 
+            left_neighbors left_neighbor_arc other_arc] 
+            \<open>hd element_arc \<in> set cycle\<close>[folded element_def] arc_index_def
+            \<open>element_arc = generate_n_arc cycle arc_index arc_size\<close> right_neighbor_indices_def
+            right_neighbors_def \<open>right_neighbor_arc \<in> right_neighbors\<close> left_neighbor_indices_def
+            left_neighbors_def \<open>left_neighbor_arc \<in> left_neighbors\<close> \<open>element_arc \<noteq> other_arc\<close> 
+            using \<open>other_arc \<in> set arcs\<close> by argo
+      then have "card left_arc_neighbors \<le> arc_size - 1" by (metis \<open>arc_size \<noteq> 1\<close> card.infinite 
+                card_mono diff_is_0_eq diffs0_imp_equal inf_le2 left_arc_neighbors_def 
+                minimal_arc_size)
+      have "length arcs = card left_arc_neighbors + card right_arc_neighbors + 1"
+        by (metis (no_types, lifting) Int_insert_right_if0 Int_left_commute One_nat_def UnE 
+            Un_Int_eq(2) \<open>element_arc \<notin> left_arc_neighbors \<and> element_arc \<notin> right_arc_neighbors\<close>
+            \<open>left_arc_neighbors \<inter> right_arc_neighbors = {}\<close> 
+            \<open>left_arc_neighbors \<union> right_arc_neighbors \<union> {element_arc} = set arcs\<close> 
+            bij_betw_same_card card.empty card_Un_disjoint card_insert_disjoint
+            equals0D finite_Un finite_insert index_set_size indices_are_representative 
+            list.set_finite)
+      have "card right_neighbors = arc_size - 1" using neighbors[of element arc_index element_arc 
+            right_neighbor_indices right_neighbors right_neighbor_arc left_neighbor_indices 
+            left_neighbors left_neighbor_arc other_arc] 
+          \<open>hd element_arc \<in> set cycle\<close>[folded element_def] arc_index_def
+          \<open>element_arc = generate_n_arc cycle arc_index arc_size\<close> right_neighbor_indices_def
+          right_neighbors_def \<open>right_neighbor_arc \<in> right_neighbors\<close> left_neighbor_indices_def
+          left_neighbors_def \<open>left_neighbor_arc \<in> left_neighbors\<close> \<open>element_arc \<noteq> other_arc\<close> 
+        by (metis arc_index_def \<open>right_neighbor_arc \<in> right_neighbors\<close> 
+            \<open>element_arc = generate_n_arc cycle arc_index arc_size\<close> 
+            \<open>left_neighbor_arc \<in> left_neighbors\<close> \<open>element_arc \<noteq> other_arc\<close> 
+            \<open>element \<in> set cycle\<close> \<open>other_arc \<in> set arcs\<close>)
+      then have "card right_arc_neighbors \<le> arc_size - 1"
+        by (metis \<open>1 < arc_size\<close> card.infinite card_mono diff_is_0_eq inf_commute inf_sup_ord(1) 
+            linorder_not_less right_arc_neighbors_def)
+      have "length arcs = card left_arc_neighbors + card right_arc_neighbors + 1"
+        by (metis (no_types, lifting) Int_insert_right_if0 Int_left_commute One_nat_def UnE 
+            Un_Int_eq(2) \<open>element_arc \<notin> left_arc_neighbors \<and> element_arc \<notin> right_arc_neighbors\<close>
+            \<open>left_arc_neighbors \<inter> right_arc_neighbors = {}\<close> 
+            \<open>left_arc_neighbors \<union> right_arc_neighbors \<union> {element_arc} = set arcs\<close> 
+            bij_betw_same_card card.empty card_Un_disjoint card_insert_disjoint
+            equals0D finite_Un finite_insert index_set_size indices_are_representative 
+            list.set_finite)
+      define left_arc_neighbor_indices where "left_arc_neighbor_indices 
+        = {index_of_element (hd x) cycle |x .  x \<in> left_arc_neighbors}"
+      have "card left_arc_neighbor_indices = card left_arc_neighbors" sorry
+      define right_pairs_of_left where "right_pairs_of_left 
+        = {(index + arc_size) mod (length cycle)| index. index \<in> left_arc_neighbor_indices}"
+      have "card right_pairs_of_left = card left_arc_neighbor_indices" 
+        using neighbors[of element arc_index element_arc right_neighbor_indices right_neighbors
+          right_neighbor_arc left_neighbor_indices left_neighbors left_neighbor_arc other_arc] 
+          \<open>hd element_arc \<in> set cycle\<close>[folded element_def] arc_index_def 
+          \<open>element_arc = generate_n_arc cycle arc_index arc_size\<close> right_neighbor_indices_def
+          right_neighbors_def \<open>right_neighbor_arc \<in> right_neighbors\<close> left_neighbor_indices_def
+          left_neighbors_def \<open>left_neighbor_arc \<in> left_neighbors\<close> \<open>element_arc \<noteq> other_arc\<close>
+        using right_pairs_of_left_def sorry
+      define right_arc_pairs_of_left where "right_arc_pairs_of_left 
+        = {generate_n_arc cycle index arc_size | index . index \<in> right_pairs_of_left}"
+      have "card right_pairs_of_left = card right_arc_pairs_of_left" using neighbors[of element 
+            arc_index element_arc right_neighbor_indices right_neighbors right_neighbor_arc 
+            left_neighbor_indices left_neighbors left_neighbor_arc other_arc]
+            \<open>hd element_arc \<in> set cycle\<close>[folded element_def] arc_index_def
+            \<open>element_arc = generate_n_arc cycle arc_index arc_size\<close> right_neighbor_indices_def
+            right_neighbors_def \<open>right_neighbor_arc \<in> right_neighbors\<close> left_neighbor_indices_def
+            left_neighbors_def \<open>left_neighbor_arc \<in> left_neighbors\<close> \<open>element_arc \<noteq> other_arc\<close>
+            right_pairs_of_left_def right_arc_pairs_of_left_def sorry
+      have subset_arcs: "right_arc_pairs_of_left \<subseteq> right_neighbors" using neighbors[of element 
+            arc_index element_arc right_neighbor_indices right_neighbors right_neighbor_arc 
+            left_neighbor_indices left_neighbors left_neighbor_arc other_arc] 
+          \<open>hd element_arc \<in> set cycle\<close>[folded element_def] arc_index_def
+          \<open>element_arc = generate_n_arc cycle arc_index arc_size\<close> right_neighbor_indices_def
+          right_neighbors_def \<open>right_neighbor_arc \<in> right_neighbors\<close> left_neighbor_indices_def
+          left_neighbors_def \<open>left_neighbor_arc \<in> left_neighbors\<close> \<open>element_arc \<noteq> other_arc\<close>
+          right_arc_pairs_of_left_def right_pairs_of_left_def sorry
+      have "\<forall>arc \<in> right_arc_pairs_of_left. arc \<notin> set arcs"
+      proof
+        fix arc
+        assume "arc \<in> right_arc_pairs_of_left"
+        obtain right_index where "arc = generate_n_arc cycle right_index arc_size 
+          \<and> right_index \<in> right_pairs_of_left" using \<open>arc \<in> right_arc_pairs_of_left\<close> 
+            right_arc_pairs_of_left_def by auto
+        obtain left_index where "(left_index + arc_size) mod (length cycle) 
+          = right_index \<and> left_index \<in> left_arc_neighbor_indices" using \<open>arc = generate_n_arc cycle 
+          right_index arc_size \<and> right_index \<in> right_pairs_of_left\<close> right_pairs_of_left_def by blast
+        define left_arc where "left_arc = generate_n_arc cycle left_index arc_size"
+        have "left_arc \<in> left_arc_neighbors" sorry
+        have "\<not> intersecting_lists left_arc arc" sorry
+        have "left_arc \<in> set arcs" using \<open>left_arc \<in> left_arc_neighbors\<close> left_arc_neighbors_def 
+          by fastforce
+        show "arc \<notin> set arcs" by (metis \<open>\<not> intersecting_lists left_arc arc\<close> intersecting_arcs_def 
+              intersecting_n_arcs_def intersecting_arcs \<open>left_arc \<in> set arcs\<close>)
+      qed
+      then have "right_arc_neighbors \<subseteq> right_neighbors - right_arc_pairs_of_left" 
+        using right_arc_neighbors_def by blast
+      then have "card right_arc_neighbors \<le> card (right_neighbors - right_arc_pairs_of_left)" 
+        by (metis \<open>card right_arc_neighbors \<le> arc_size - 1\<close> \<open>card right_neighbors = arc_size - 1\<close> 
+            card.infinite card_mono finite_Diff)
+      then have "... = card right_neighbors - card right_arc_pairs_of_left"
+        by (metis \<open>1 < arc_size\<close> \<open>card right_neighbors = arc_size - 1\<close> card_Diff_subset 
+            card_gt_0_iff finite_subset subset_arcs zero_less_diff)
+      then have "... = card right_neighbors - card left_arc_neighbors" 
+        using \<open>card left_arc_neighbor_indices = card left_arc_neighbors\<close> 
+          \<open>card right_pairs_of_left = card left_arc_neighbor_indices\<close> 
+          \<open>card right_pairs_of_left = card right_arc_pairs_of_left\<close> by presburger
+      have "card left_arc_neighbors + card right_arc_neighbors \<le> arc_size - 1"
+        using \<open>card (right_neighbors - right_arc_pairs_of_left) = card right_neighbors - card right_arc_pairs_of_left\<close> 
+          \<open>card left_arc_neighbors \<le> arc_size - 1\<close> \<open>card right_arc_neighbors 
+          \<le> card (right_neighbors - right_arc_pairs_of_left)\<close> 
+          \<open>card right_neighbors - card right_arc_pairs_of_left = card right_neighbors - card left_arc_neighbors\<close>
+          \<open>card right_neighbors = arc_size - 1\<close> by linarith
+      then show "length arcs \<le> arc_size" 
+        using \<open>length arcs = card left_arc_neighbors + card right_arc_neighbors + 1\<close> 
+          minimal_arc_size by linarith
   qed
 qed
 
