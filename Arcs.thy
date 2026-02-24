@@ -1,27 +1,62 @@
 theory Arcs
 
+(*
+ * This theory is on sets of intersecting arcs on circular permutations. 
+ *
+ * N-arcs are n consecutive elements on a circular permutation. If two arcs have a common element
+ * they intersect.
+ *
+ * The main theorem of this theory states that a set of intersecting n-arcs can have at most n 
+ * elements.
+ *)
+
 imports Main List_Helper
 
 begin
 
+(*
+ * A boolean function that is true iff arc is an arc in the cycle, i.e. consecutive elements of
+ * the cycle.
+ *)
 definition arc_of_cycle :: "'a list \<Rightarrow> 'a list \<Rightarrow> bool" where
   "arc_of_cycle arc cycle \<longleftrightarrow> (\<exists>n :: nat < length cycle. take (length arc) (rotate n cycle) = arc)"
 
+(*
+ * A boolean function that is true iff arc is an arc in the cycle and if the arc has n elements.
+ *)
 definition n_arc_of_cycle :: "'a list \<Rightarrow> 'a list \<Rightarrow> nat \<Rightarrow> bool" where
   "n_arc_of_cycle arc cycle n \<longleftrightarrow> arc_of_cycle arc cycle \<and> length arc = n"
 
+(*
+ * A boolean function that is true if the parameter set of lists only contains arcs of a cycle.
+ *)
 definition arcs_of_cycle :: "'a list \<Rightarrow> 'a list set" where
   "arcs_of_cycle cycle = {arc :: 'a list. arc_of_cycle arc cycle}"
 
+(*
+ * A boolean function that is true if the parameter set of lists only contains n-arcs of a cycle.
+ *)
 definition n_arcs_of_cycle :: "'a list \<Rightarrow> nat \<Rightarrow> 'a list set" where
   "n_arcs_of_cycle cycle n = {arc \<in> arcs_of_cycle cycle. length arc = n}"
 
+(*
+ * A function that generates an arc_size arc from a cycle beginning from the index element of the
+ * cycle.
+ *)
 definition generate_n_arc :: "'a list \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> 'a list" where
   "generate_n_arc cycle index arc_size = take arc_size (rotate index cycle)"
 
+(*
+ * A function that maps a set of arcs of a cycle to the indices of the head elements of the arcs
+ * in the cycle. Since the locale below states that the cycle can not contain duplicate elements,
+ * this value will be an identifier of the arc.
+ *)
 definition n_arc_indices :: "'a list \<Rightarrow> 'a list list \<Rightarrow> nat \<Rightarrow> nat set" where
   "n_arc_indices cycle arcs arc_size = {n :: nat. n < length cycle \<and> generate_n_arc cycle n arc_size \<in> set arcs}"
 
+(*
+ * The function which is true if the two parameter lists have a common element.
+ *)
 definition intersecting_lists :: "'a list \<Rightarrow> 'a list \<Rightarrow> bool" where
   "intersecting_lists first_list second_list \<longleftrightarrow> (\<exists>element \<in> set first_list. element \<in> set second_list)"
 
@@ -30,17 +65,37 @@ definition intersecting_lists :: "'a list \<Rightarrow> 'a list \<Rightarrow> bo
  *)
 lemma intersecting_lists_eq: "intersecting_lists list1 list2 \<longleftrightarrow> set list1 \<inter> set list2 \<noteq> {}" using intersecting_lists_def by auto
 
+
+(*
+ * A function which returns true if the arcs are arcs of the cycle and each pair of arcs intersect
+ * with each other.
+ *)
 definition intersecting_arcs :: "'a list list \<Rightarrow> 'a list  \<Rightarrow> bool" where
   "intersecting_arcs arcs cycle \<longleftrightarrow> (\<forall>arc \<in> set arcs. (arc_of_cycle arc cycle) \<and> (\<forall>other_arc \<in> set arcs. intersecting_lists arc other_arc))"
 
+(*
+ * A function which returns true if the arcs are n-arcs of the cycle and each pair of arcs intersect
+ * with each other.
+ *)
 definition intersecting_n_arcs :: "'a list list \<Rightarrow> 'a list \<Rightarrow> nat \<Rightarrow> bool" where
   "intersecting_n_arcs arcs cycle n \<longleftrightarrow> intersecting_arcs arcs cycle \<and> (\<forall>arc \<in> set arcs. length arc = n)" 
 
+(*
+ * A function that returns the distance of two indices on a cycle.
+ *)
 definition index_distance :: "nat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> nat" where
   "index_distance cycle_length first_index second_index = (if first_index > second_index
   then (Min {first_index - second_index, cycle_length - (first_index - second_index)})
   else (Min {second_index - first_index, cycle_length - (second_index - first_index)})) "
 
+(*
+ * The assumptions for this theory:
+ *
+ * A cycle has at least three elements, otherwise it is not a cycle but a path.
+ * The cycle does not contain duplicate elements.
+ * The arcs all have equal size and the size of the cycle is at least the double of the arc size.
+ * The list of arcs are all arcs of the cycle, are unique and intersect with each other pairwise.
+ *)
 locale arc_context = 
   fixes cycle :: "'a list"
   fixes arcs :: "'a list list"
@@ -306,7 +361,6 @@ lemma arc_element_index_to_cycle_index:
     mod_less_divisor not_in_list nth_mem zero_neq_numeral) 
 
 
-<<<<<<< HEAD
 (*
  * A lemma that contains all the necessary facts for the main theorem of this theory.
  * In hindsight it might have been wiser to split up this lemma up to multiple by grouping the
@@ -329,9 +383,7 @@ lemma arc_element_index_to_cycle_index:
  * shifting each arc in the left neighbors clockwise by arc_size elements. This will be a crucial
  * fact to prove the theorem. 
  *)
-=======
-(* A big lemma that combines neccessary lemmas for the final theorem *)
->>>>>>> 2cc2dff04d608075286726ff4c13760eec5104b0
+
 lemma neighbors:
   fixes element :: "'a"
   fixes element_index :: "nat"
