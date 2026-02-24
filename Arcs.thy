@@ -1,27 +1,62 @@
 theory Arcs
 
+(*
+ * This theory is on sets of intersecting arcs on circular permutations. 
+ *
+ * N-arcs are n consecutive elements on a circular permutation. If two arcs have a common element
+ * they intersect.
+ *
+ * The main theorem of this theory states that a set of intersecting n-arcs can have at most n 
+ * elements.
+ *)
+
 imports Main List_Helper
 
 begin
 
+(*
+ * A boolean function that is true iff arc is an arc in the cycle, i.e. consecutive elements of
+ * the cycle.
+ *)
 definition arc_of_cycle :: "'a list \<Rightarrow> 'a list \<Rightarrow> bool" where
   "arc_of_cycle arc cycle \<longleftrightarrow> (\<exists>n :: nat < length cycle. take (length arc) (rotate n cycle) = arc)"
 
+(*
+ * A boolean function that is true iff arc is an arc in the cycle and if the arc has n elements.
+ *)
 definition n_arc_of_cycle :: "'a list \<Rightarrow> 'a list \<Rightarrow> nat \<Rightarrow> bool" where
   "n_arc_of_cycle arc cycle n \<longleftrightarrow> arc_of_cycle arc cycle \<and> length arc = n"
 
+(*
+ * A boolean function that is true if the parameter set of lists only contains arcs of a cycle.
+ *)
 definition arcs_of_cycle :: "'a list \<Rightarrow> 'a list set" where
   "arcs_of_cycle cycle = {arc :: 'a list. arc_of_cycle arc cycle}"
 
+(*
+ * A boolean function that is true if the parameter set of lists only contains n-arcs of a cycle.
+ *)
 definition n_arcs_of_cycle :: "'a list \<Rightarrow> nat \<Rightarrow> 'a list set" where
   "n_arcs_of_cycle cycle n = {arc \<in> arcs_of_cycle cycle. length arc = n}"
 
+(*
+ * A function that generates an arc_size arc from a cycle beginning from the index element of the
+ * cycle.
+ *)
 definition generate_n_arc :: "'a list \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> 'a list" where
   "generate_n_arc cycle index arc_size = take arc_size (rotate index cycle)"
 
+(*
+ * A function that maps a set of arcs of a cycle to the indices of the head elements of the arcs
+ * in the cycle. Since the locale below states that the cycle can not contain duplicate elements,
+ * this value will be an identifier of the arc.
+ *)
 definition n_arc_indices :: "'a list \<Rightarrow> 'a list list \<Rightarrow> nat \<Rightarrow> nat set" where
   "n_arc_indices cycle arcs arc_size = {n :: nat. n < length cycle \<and> generate_n_arc cycle n arc_size \<in> set arcs}"
 
+(*
+ * The function which is true if the two parameter lists have a common element.
+ *)
 definition intersecting_lists :: "'a list \<Rightarrow> 'a list \<Rightarrow> bool" where
   "intersecting_lists first_list second_list \<longleftrightarrow> (\<exists>element \<in> set first_list. element \<in> set second_list)"
 
@@ -30,17 +65,37 @@ definition intersecting_lists :: "'a list \<Rightarrow> 'a list \<Rightarrow> bo
  *)
 lemma intersecting_lists_eq: "intersecting_lists list1 list2 \<longleftrightarrow> set list1 \<inter> set list2 \<noteq> {}" using intersecting_lists_def by auto
 
+
+(*
+ * A function which returns true if the arcs are arcs of the cycle and each pair of arcs intersect
+ * with each other.
+ *)
 definition intersecting_arcs :: "'a list list \<Rightarrow> 'a list  \<Rightarrow> bool" where
   "intersecting_arcs arcs cycle \<longleftrightarrow> (\<forall>arc \<in> set arcs. (arc_of_cycle arc cycle) \<and> (\<forall>other_arc \<in> set arcs. intersecting_lists arc other_arc))"
 
+(*
+ * A function which returns true if the arcs are n-arcs of the cycle and each pair of arcs intersect
+ * with each other.
+ *)
 definition intersecting_n_arcs :: "'a list list \<Rightarrow> 'a list \<Rightarrow> nat \<Rightarrow> bool" where
   "intersecting_n_arcs arcs cycle n \<longleftrightarrow> intersecting_arcs arcs cycle \<and> (\<forall>arc \<in> set arcs. length arc = n)" 
 
+(*
+ * A function that returns the distance of two indices on a cycle.
+ *)
 definition index_distance :: "nat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> nat" where
   "index_distance cycle_length first_index second_index = (if first_index > second_index
   then (Min {first_index - second_index, cycle_length - (first_index - second_index)})
   else (Min {second_index - first_index, cycle_length - (second_index - first_index)})) "
 
+(*
+ * The assumptions for this theory:
+ *
+ * A cycle has at least three elements, otherwise it is not a cycle but a path.
+ * The cycle does not contain duplicate elements.
+ * The arcs all have equal size and the size of the cycle is at least the double of the arc size.
+ * The list of arcs are all arcs of the cycle, are unique and intersect with each other pairwise.
+ *)
 locale arc_context = 
   fixes cycle :: "'a list"
   fixes arcs :: "'a list list"
@@ -198,6 +253,61 @@ lemma arc_heads_define_n_arcs:
 
 
 (*
+<<<<<<< HEAD
+ * A corollary that uses the fact before to show that the list of heads generated from an arc don't
+ * have duplicates
+ *) 
+lemma heads_eq: "distinct (map (\<lambda>x. hd x) arcs)" by (smt (verit, ccfv_SIG) arc_heads_define_n_arcs 
+  distinct_arcs distinct_conv_nth length_map nth_map nth_mem)
+
+
+(*
+ * A lemma that relates the index of an element in an arc to the index of the same element in the 
+ * circular permutation and the index of the head of the arc in the cycle.
+ *)
+lemma arc_indices_to_cycle_indices:
+  fixes arc :: "'a list"
+  fixes arc_element :: "'a"
+  fixes arc_index :: "nat"
+  assumes "arc_index < arc_size"
+  assumes "arc \<in> set arcs"
+  assumes "arc_element \<in> set arc"
+  shows "arc ! arc_index = arc_element \<longrightarrow> (\<exists>rotate_number < length cycle. cycle ! ((rotate_number + arc_index) mod (length cycle)) = arc_element)"
+proof
+  assume "arc ! arc_index = arc_element"
+  obtain rotate_index where "rotate_index < length cycle \<and> generate_n_arc cycle rotate_index arc_size = arc" 
+    by (metis generating_index_exists assms(2))
+  then have witness: "cycle ! ((rotate_index + arc_index) mod (length cycle)) = arc_element"
+    by (smt (verit) \<open>arc ! arc_index = arc_element\<close> assms(1) generate_n_arc_def leD maximum_arc_size 
+      mult_2 nat_int_comparison(2) not_add_less2 nth_rotate nth_take)
+  then show "\<exists>rotate_number < length cycle. cycle ! ((rotate_number + arc_index) mod (length cycle)) = arc_element"
+    using \<open>rotate_index < length cycle \<and> generate_n_arc cycle rotate_index arc_size = arc\<close> by blast
+qed
+
+
+(*
+ * This lemma connects the indices of arc elements in the arc to the indices in the circular 
+ * permutation in relative to the index of the head of the arc. This lemma does not provide the
+ * witness, but states that since the element is in the arc, its clockwise distance to the arc
+ * head in the circular permutation should be less than the arc size.
+ *)
+lemma indices_in_arc:
+  fixes arc :: "'a list"
+  fixes arc_head :: "'a"
+  fixes arc_head_index :: "nat"
+  fixes arc_element :: "'a"
+  assumes "arc \<in> set arcs"
+  assumes "arc_element \<in> set arc"
+  assumes "arc_head = hd arc"
+  assumes "arc_head_index = index_of_element arc_head cycle"
+  shows "\<exists>index < arc_size. cycle ! ((arc_head_index + index) mod (length cycle)) = arc_element"
+  by (metis add_leE arc_generator_head assms(1,2,3,4) fixed_arc_size generate_n_arc_def in_set_conv_nth maximum_arc_size mult_2
+      n_arc_of_cycle_def nth_rotate nth_take order_less_le_trans)
+
+
+(*
+=======
+>>>>>>> 2cc2dff04d608075286726ff4c13760eec5104b0
  * A lemma that provides another invariant for checking whether an element is in an arc.
  *)
 lemma elements_of_arc:
@@ -215,7 +325,7 @@ lemma elements_of_arc:
 
 
 (*
- * 
+ * This lemma provides the witness for the lemma indices_in_arc.
  *)
 lemma indices_of_arc_elements:
   fixes arc :: "'a list"
@@ -233,7 +343,8 @@ lemma indices_of_arc_elements:
 
 
 (*
- *
+ * This lemma is similar to the previous lemma but it binds the indices of the arc elements with 
+ * the index_of_element function.
  *)
 lemma arc_element_index_to_cycle_index:
   fixes arc :: "'a list"
@@ -250,7 +361,29 @@ lemma arc_element_index_to_cycle_index:
     mod_less_divisor not_in_list nth_mem zero_neq_numeral) 
 
 
-(* A big lemma that combines neccessary lemmas for the final theorem *)
+(*
+ * A lemma that contains all the necessary facts for the main theorem of this theory.
+ * In hindsight it might have been wiser to split up this lemma up to multiple by grouping the
+ * shows statements.
+ * 
+ * To summarize, this lemma states that an intersecting arc with an arc can be in two possible groups.
+ * The left neighbors, i.e. the arcs that contain the head element of the main arc.
+ * The right neighbors, i.e. the arcs whose head element is contained in the main arc.
+ * 
+ * The shows statements state that the cardinality of the left and right neighbors of the arc is
+ * arc_size - 1. For the right neighbors, there is an arc that begins from each of the elements of
+ * the main arc except the head, since the head element generates the main arc itself. The argument
+ * for the left neighbors is analogous.
+ *
+ * Furthermore this lemma states that all the arcs that intersects with the main arc must belong 
+ * to one of the two groups. And that those two groups don't have intersecting elements due to the
+ * cycle size being at least the twofold of the arc size.
+ * 
+ * The lemma also relates the two groups of arcs, the right set of neighbors can be generated by
+ * shifting each arc in the left neighbors clockwise by arc_size elements. This will be a crucial
+ * fact to prove the theorem. 
+ *)
+
 lemma neighbors:
   fixes element :: "'a"
   fixes element_index :: "nat"
@@ -1278,6 +1411,24 @@ proof -
 qed
 
 
+
+(*
+ * This theorem states that a set of intersecting n-arcs can have at most n arcs.
+ * 
+ * The proof mainly uses the lemma neighbors:
+ *
+ * Any arc is selected from a set of intersecting arcs. Then the remaining arcs are partitioned to
+ * left and right neighbors. Due to the lemma neighbors, each group can have at most arc_size - 1
+ * elements. But this is far from the theorems statement, since now the upper limit for the 
+ * partition is 2 * (arc_size - 1) + 1.
+ *
+ * But the lemma neighbors also states that an arc in the left neighbors can be uniquely mapped
+ * to a right neighbor by shifting it clockwise by arc_size elements.
+ * This shifted pair in right neighbor does not intersect with the original left neighbor.
+ * Hence for each left neighbor, one right neighbor can not be in the intersecting arcs.
+ * Therefore at most arc_size - 1 elements can be in the intersecting_arcs from the left and right 
+ * neighbors. By adding the original arc we get the upper limit of arc_size elements.
+ *)
 theorem intersecting_n_arcs_upper_limit: "length arcs \<le> arc_size"
 proof cases
   assume "arc_size = 1"
